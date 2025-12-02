@@ -1,0 +1,16 @@
+# Copyright (c) 2025 Eclipse Foundation
+# Copyright lowRISC contributors.
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+
+# CVE2 configurations files, holds the parameter sets that are tested under CI.
+# Each configuration must specify the same set of parameters
+
+# Two-stage pipeline without additional branch target ALU and 3 cycle multiplier
+# (4 cycles for mulh), resulting in 2 stall cycles for mul (3 for mulh)
+small:
+  MHPMCounterNum           : 10
+  MHPMCounterWidth         : 40
+  RV32E                    : 0
+  RV32M                    : "cve2_pkg::RV32MFast"
+

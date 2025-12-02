@@ -1,0 +1,23 @@
+CAPI=2:
+# Copyright (c) 2025 Eclipse Foundation
+# Copyright lowRISC contributors.
+# Licensed under the Apache License, Version 2.0, see LICENSE for details.
+# SPDX-License-Identifier: Apache-2.0
+name: "openhwgroup:cve2:cve2_icache:0.1"
+description: "CVE2 instruction cache"
+filesets:
+  files_rtl:
+    depend:
+      - lowrisc:prim:secded
+      - lowrisc:prim:assert
+      - openhwgroup:cve2:cve2_pkg
+    files:
+      - rtl/cve2_icache.sv
+    file_type: systemVerilogSource
+
+targets:
+  default: &default_target
+    filesets:
+      - files_rtl
+    toplevel: cve2_icache
+    default_tool: vcs
