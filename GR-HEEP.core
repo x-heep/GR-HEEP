@@ -52,18 +52,19 @@ filesets:
     file_type: systemVerilogSource
 
   # RTL testbench system
-  tb-system:
+  tb-harness:
     files:
-    - tb/tb_system.sv
     - tb/tb_util.svh: {is_include_file: true}
+    - tb/yosys_spiflash.sv
+    - tb/testharness.sv
     file_type: systemVerilogSource
 
   # Verilator C++ testbench
   tb-verilator:
     files:
-    - tb/verilator/tb_macros.cpp
-    - tb/verilator/gr_heep_tb.cpp
-    - tb/verilator/tb_macros.hh: {is_include_file: true}
+    - tb/XHEEP_CmdLineOptions.hh: { is_include_file: true }
+    - tb/XHEEP_CmdLineOptions.cpp
+    - tb/tb_top.cpp
     file_type: cppSource
 
   # Modelsim/VCS testbench
@@ -81,7 +82,8 @@ filesets:
     # Verilator waviver files
   verilator-waivers:
     files:
-    - tb/misc/tb-waivers.vlt
+    - tb/tb.vlt
+    - tb/tb_v5.vlt
     - hw/misc/gr-heep-waivers.vlt
     - hw/misc/heep-waivers.vlt
     file_type: vlt
@@ -92,6 +94,10 @@ filesets:
     depend:
     - lowrisc:dv_dpi:uartdpi
     - example:ip:gpio_cnt
+  
+  remote_bitbang_dpi:
+    depend:
+    - pulp-platform.org::pulpissimo_remote_bitbang
 
   # Scripts for hooks
   pre_build_uartdpi:
@@ -150,24 +156,25 @@ targets:
     description: Simulate the design using Verilator
     default_tool: verilator
     filesets_append:
-    - tb-system
+    - tb-harness
     - tb-system-vendor
-    - "!tool_verilator ? (tb-others)"
-    - "!tool_verilator ? (tb-others-vendor)"
-    - tool_verilator ? (tb-verilator)
-    - tool_verilator ? (verilator-waivers)
+    - "!tool_verilator? (tb-others)"
+    - "!tool_verilator? (tb-others-vendor)"
+    - tool_verilator? (tb-verilator)
+    - tool_verilator? (verilator-waivers)
+    - tool_verilator? (remote_bitbang_dpi)
     - tool_modelsim? (pre_build_uartdpi)
     toplevel:
-    - tool_verilator ? (tb_system)
-    - "!tool_verilator ? (tb_top)"
+    - tool_verilator? (testharness)
+    - "!tool_verilator? (tb_top)"
     hooks:
       pre_build:
       - tool_modelsim? (pre_build_uartdpi)
       - tool_modelsim? (pre_patch_modelsim_Makefile)
       pre_run:
-      - tool_verilator ? (prepare_dirs)
+      - tool_verilator? (prepare_dirs)
       post_run:
-      - tool_verilator ? (copy_waves)
+      - tool_verilator? (copy_waves)
     parameters_append:
     - boot_mode
     - firmware
@@ -180,8 +187,9 @@ targets:
       modelsim:
         vlog_options:
         - -override_timescale 1ns/1ps
-        - -suppress vlog-2577
         - -suppress vlog-2583
+        - -suppress vlog-2577
+        - -suppress vlog-2720
         - -pedanticerrors
         - -define MODELSIM
         vsim_options:
@@ -193,20 +201,17 @@ targets:
         mode: cc
         verilator_options:
         - '--cc'
-        - '--assert'
         - '--trace'
         - '--trace-fst'
         - '--trace-structs'
-        - '--trace-max-array 128'
+        - '--trace-params'
+        - '--trace-max-array 1024'
         - '--x-assign unique'
         - '--x-initial unique'
-        #- '--threads 2' # only use with Verilator v5.XXX
-        - '--exe'
-        - 'gr_heep_tb.cpp'
-        - '-Wall'
-        - '-Wpedantic'
+        - '--exe tb_top.cpp'
+        - '-CFLAGS "-Wall -fpermissive"'
         - '-LDFLAGS "-pthread -lutil -lelf"'
-        # - '-CFLAGS "-Wall -g"'
+        - "-Wall"
 
   # Format with Verible
   format:

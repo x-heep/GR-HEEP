@@ -9,12 +9,13 @@
 
 module gr_heep_top (
     // X-HEEP interface
-% for pad in total_pad_list:
-${pad.x_heep_system_interface}
+% for pad in xheep.get_padring().total_pad_list:
+  ${pad.x_heep_system_interface}
 % endfor
 );
   import obi_pkg::*;
   import reg_pkg::*;
+  import fifo_pkg::*;
   import gr_heep_pkg::*;
   import core_v_mini_mcu_pkg::*;
 
@@ -45,6 +46,14 @@ ${pad.x_heep_system_interface}
   obi_resp_t [DMA_NUM_MASTER_PORTS-1:0] heep_dma_write_rsp;
   obi_req_t  [DMA_NUM_MASTER_PORTS-1:0] heep_dma_addr_req;
   obi_resp_t [DMA_NUM_MASTER_PORTS-1:0] heep_dma_addr_rsp;
+  fifo_req_t [core_v_mini_mcu_pkg::DMA_CH_NUM-1:0] hw_fifo_req;
+  fifo_resp_t [core_v_mini_mcu_pkg::DMA_CH_NUM-1:0] hw_fifo_rsp;
+  logic [core_v_mini_mcu_pkg::DMA_CH_NUM-1:0] hw_fifo_done;
+
+  // External DMA slots
+  logic [core_v_mini_mcu_pkg::DMA_CH_NUM-1:0] ext_dma_slot_tx;
+  logic [core_v_mini_mcu_pkg::DMA_CH_NUM-1:0] ext_dma_slot_rx;
+  logic [core_v_mini_mcu_pkg::DMA_CH_NUM-1:0] dma_done;
 
   // X-HEEP slave ports
   obi_req_t  [ExtXbarNmasterRnd-1:0] heep_slave_req;
@@ -60,6 +69,7 @@ ${pad.x_heep_system_interface}
 
   // Interrupt vector
   logic [core_v_mini_mcu_pkg::NEXT_INT-1:0] ext_int_vector;
+  logic intr_ext_peripheral;
 
   // Power Manager signals
   logic cpu_subsystem_powergate_switch_n;
@@ -72,14 +82,14 @@ ${pad.x_heep_system_interface}
   reg_rsp_t  [AoSPCNum-1:0] ext_ao_peripheral_resp;
   
 
-  // Pad controller
+  // PAD controller
   reg_req_t pad_req;
   reg_rsp_t pad_rsp;
-% if pads_attributes != None:
-  logic [core_v_mini_mcu_pkg::NUM_PAD-1:0][${pads_attributes['bits']}] pad_attributes;
+% if xheep.get_padring().pads_attributes != None:
+  logic [core_v_mini_mcu_pkg::NUM_PAD-1:0][${xheep.get_padring().pads_attributes['bits']}] pad_attributes;
 % endif
-% if total_pad_muxed > 0:
-  logic [core_v_mini_mcu_pkg::NUM_PAD-1:0][${max_total_pad_mux_bitlengh-1}:0] pad_muxes;
+ % if xheep.get_padring().total_pad_muxed > 0:
+  logic [core_v_mini_mcu_pkg::NUM_PAD-1:0][${xheep.get_padring().max_total_pad_mux_bitlengh-1}:0] pad_muxes;
 % endif
 
   // External power domains
@@ -102,12 +112,12 @@ ${pad.x_heep_system_interface}
   if_xif #(.X_NUM_RS(3)) ext_xif ();
 
   // CORE-V-MINI-MCU input/output pins
-% for pad in total_pad_list:
-${pad.internal_signals}
+% for pad in xheep.get_padring().total_pad_list:
+  ${pad.internal_signals}
 % endfor
 
   // Drive to zero bypassed pins
-% for pad in total_pad_list:
+% for pad in xheep.get_padring().total_pad_list:
 % if pad.pad_type == 'bypass_inout' or pad.pad_type == 'bypass_input':
 % for i in range(len(pad.pad_type_drive)):
 % if pad.driven_manually[i] == False:
@@ -121,9 +131,9 @@ ${pad.internal_signals}
   // SYSTEM MODULES
   // --------------
 
-  // Reset generator
+  // Reset synchronizer
   // ---------------
-  rstgen u_rstgen (
+  rstgen rstgen_i (
     .clk_i      (clk_in_x),
     .rst_ni     (rst_nin_x),
     .test_mode_i(1'b0 ), // not implemented
@@ -141,22 +151,26 @@ ${pad.internal_signals}
     .X_EXT           (CpuCorevXif),
     .AO_SPC_NUM      (AoSPCNum),
     .EXT_HARTS       (1)
-  ) u_core_v_mini_mcu (
+  ) core_v_mini_mcu_i (
+    .clk_i (clk_in_x),
     .rst_ni (rst_nin_sync),
-    .clk_i  (clk_i),
 
     // MCU pads
-% for pad in pad_list:
-${pad.core_v_mini_mcu_bonding}
+% for pad in xheep.get_padring().pad_list:
+    ${pad.core_v_mini_mcu_bonding}
 % endfor
+
+    // IDs
+    .hart_id_i ('0),
+    .xheep_instance_id_i ('0),
 
     // CORE-V eXtension Interface
     .xif_compressed_if (ext_xif.cpu_compressed),
-    .xif_issue_if      (ext_xif.cpu_issue),
-    .xif_commit_if     (ext_xif.cpu_commit),
-    .xif_mem_if        (ext_xif.cpu_mem),
+    .xif_issue_if (ext_xif.cpu_issue),
+    .xif_commit_if (ext_xif.cpu_commit),
+    .xif_mem_if (ext_xif.cpu_mem),
     .xif_mem_result_if (ext_xif.cpu_mem_result),
-    .xif_result_if     (ext_xif.cpu_result),
+    .xif_result_if (ext_xif.cpu_result),
 
     // Pad controller interface
     .pad_req_o  (pad_req),
@@ -179,19 +193,22 @@ ${pad.core_v_mini_mcu_bonding}
     .ext_dma_write_resp_i (heep_dma_write_rsp),
     .ext_dma_addr_req_o (heep_dma_addr_req),
     .ext_dma_addr_resp_i (heep_dma_addr_rsp),
+    .hw_fifo_req_o (hw_fifo_req),
+    .hw_fifo_resp_i (hw_fifo_rsp),
+    .hw_fifo_done_i (hw_fifo_done),
 
     // External peripherals slave ports
-    .ext_peripheral_slave_req_o  (heep_peripheral_req),
+    .ext_peripheral_slave_req_o (heep_peripheral_req),
     .ext_peripheral_slave_resp_i (heep_peripheral_rsp),
 
     // SPC signals
-    .ext_ao_peripheral_slave_req_i(ext_ao_peripheral_req),
-    .ext_ao_peripheral_slave_resp_o(ext_ao_peripheral_resp),
+    .ext_ao_peripheral_slave_req_i (ext_ao_peripheral_req),
+    .ext_ao_peripheral_slave_resp_o (ext_ao_peripheral_resp),
 
     // Power switches connected by the backend
-    .cpu_subsystem_powergate_switch_no            (cpu_subsystem_powergate_switch_n),
-    .cpu_subsystem_powergate_switch_ack_ni        (cpu_subsystem_powergate_switch_ack_n),
-    .peripheral_subsystem_powergate_switch_no     (peripheral_subsystem_powergate_switch_n),
+    .cpu_subsystem_powergate_switch_no (cpu_subsystem_powergate_switch_n),
+    .cpu_subsystem_powergate_switch_ack_ni (cpu_subsystem_powergate_switch_ack_n),
+    .peripheral_subsystem_powergate_switch_no (peripheral_subsystem_powergate_switch_n),
     .peripheral_subsystem_powergate_switch_ack_ni (peripheral_subsystem_powergate_switch_ack_n),
 
     .external_subsystem_powergate_switch_no(external_subsystem_powergate_switch_n),
@@ -205,35 +222,37 @@ ${pad.core_v_mini_mcu_bonding}
 
     // External interrupts
     .intr_vector_ext_i (ext_int_vector),
+    .intr_ext_peripheral_i (intr_ext_peripheral),
 
-    .ext_dma_slot_tx_i('0),
-    .ext_dma_slot_rx_i('0),
+    .ext_debug_req_o (ext_debug_req),
+    .ext_debug_reset_no (ext_debug_reset_n),
+    .ext_cpu_subsystem_rst_no (),
 
-    .ext_debug_req_o(ext_debug_req),
-    .ext_debug_reset_no(ext_debug_reset_n),
-    .ext_cpu_subsystem_rst_no(),
+    .ext_dma_slot_tx_i (ext_dma_slot_tx),
+    .ext_dma_slot_rx_i (ext_dma_slot_rx),
 
-    .ext_dma_stop_i('0),
-    .dma_done_o(),
+    .ext_dma_stop_i ('0),
+    .dma_done_o (dma_done),
     
     .exit_value_o (exit_value)
   );
 
-  assign cpu_subsystem_powergate_switch_ack_n = cpu_subsystem_powergate_switch_n;
-  assign peripheral_subsystem_powergate_switch_ack_n = peripheral_subsystem_powergate_switch_n;
-
+  assign hw_fifo_done = '0;
+  assign hw_fifo_rsp = '0;
+  assign ext_dma_slot_tx = '0;
+  assign ext_dma_slot_rx = '0;
   assign ext_int_vector = '0;
+  assign intr_ext_peripheral = '0;
+  assign exit_value_out_x = exit_value[0];
 
   // Pad ring
   // --------
-  assign exit_value_out_x = exit_value[0];
-  pad_ring u_pad_ring (
-% for pad in total_pad_list:
+  pad_ring pad_ring_i (
+% for pad in xheep.get_padring().total_pad_list:
 ${pad.pad_ring_bonding_bonding}
 % endfor
-
-    // Pad attributes
-% if pads_attributes != None:
+  // Pad attributes
+% if xheep.get_padring().pads_attributes != None:
     .pad_attributes_i(pad_attributes)
 % else:
     .pad_attributes_i('0)
@@ -241,10 +260,10 @@ ${pad.pad_ring_bonding_bonding}
   );
 
   // Constant pad signals
-${pad_constant_driver_assign}
+${xheep.get_padring().pad_constant_driver_assign}
 
   // Shared pads multiplexing
-${pad_mux_process}
+${xheep.get_padring().pad_mux_process}
 
   // Pad control
   // -----------
@@ -252,21 +271,21 @@ ${pad_mux_process}
     .reg_req_t (reg_req_t),
     .reg_rsp_t (reg_rsp_t),
     .NUM_PAD   (NUM_PAD)
-  ) u_pad_control (
-    .clk_i            (clk_i),
+  ) pad_control_i (
+    .clk_i            (clk_in_x),
     .rst_ni           (rst_nin_sync),
     .reg_req_i        (pad_req),
     .reg_rsp_o        (pad_rsp)
-% if total_pad_muxed > 0 or pads_attributes != None:
+% if xheep.get_padring().total_pad_muxed > 0 or xheep.get_padring().pads_attributes != None:
       ,
 % endif
-% if pads_attributes != None:
+% if xheep.get_padring().pads_attributes != None:
       .pad_attributes_o(pad_attributes)
-% if total_pad_muxed > 0:
+% if xheep.get_padring().total_pad_muxed > 0:
       ,
 % endif
 % endif
-% if total_pad_muxed > 0:
+% if xheep.get_padring().total_pad_muxed > 0:
       .pad_muxes_o(pad_muxes)
 % endif
   );

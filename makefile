@@ -30,19 +30,14 @@ endif
 # X-HEEP configuration
 XHEEP_DIR			:= $(ROOT_DIR)/hw/vendor/x-heep
 LINK_FOLDER			:= $(XHEEP_DIR)/sw/linker
-MCU_CFG_PERIPHERALS ?= $(ROOT_DIR)/config/mcu-gen.hjson
-X_HEEP_CFG  		?= $(ROOT_DIR)/config/mcu-gen-system.hjson
-PAD_CFG				?= $(ROOT_DIR)/config/x-heep-pads.hjson
-EXT_PAD_CFG			?= $(ROOT_DIR)/config/gr-heep-pads.hjson
+X_HEEP_CFG  		?= $(ROOT_DIR)/config/mcu-gen.hjson
+PADS_CFG			?= $(ROOT_DIR)/config/gr-heep-pads.hjson
 EXTERNAL_DOMAINS	:= 0 # TO BE UPDATED according to the number of external domains
+GR_HEEP_CACHE = $(BUILD_DIR)/gr-heep_cache.pickle
+XHEEP_CONFIG_CACHE=$(ROOT_DIR)/$(GR_HEEP_CACHE)
 MCU_GEN_OPTS		:= \
-	--memorybanks $(MEMORY_BANKS) \
-	--memorybanks_il $(MEMORY_BANKS_IL) \
-	--bus $(BUS) \
-	--config $(X_HEEP_CFG) \
-	--cfg_peripherals $(MCU_CFG_PERIPHERALS) \
-	--pads_cfg $(PAD_CFG) \
-	--external_domains $(EXTERNAL_DOMAINS)
+	--cached_path $(XHEEP_CONFIG_CACHE) \
+	--cached
 
 GR_HEEP_TOP_TPL		:= $(ROOT_DIR)/hw/top/gr_heep_top.sv.tpl
 # PAD_RING_TPL		:= $(ROOT_DIR)/hw/pad-ring/pad_ring.sv.tpl
@@ -75,7 +70,7 @@ FLASHWRITE_FILE		?= $(FIRMWARE)
 FUSESOC_BUILD_DIR			= $(shell find $(BUILD_DIR) -type d -name 'polito_gr_heep_gr_heep_*' 2>/dev/null | sort | head -n 1)
 QUESTA_SIM_DIR				= $(FUSESOC_BUILD_DIR)/sim-modelsim
 
-# Application spacific makefile
+# Application specific makefile
 APP_MAKE := $(wildcard sw/applications/$(PROJECT)/*akefile)
 
 # Custom preprocessor definitions
@@ -125,7 +120,7 @@ all: gr-heep-gen
 ## X-HEEP MCU system
 .PHONY: mcu-gen
 mcu-gen: $(MCU_GEN_LOCK)
-$(MCU_GEN_LOCK): $(MCU_CFG) $(PAD_CFG) $(EXT_PAD_CFG) | $(BUILD_DIR)/
+$(MCU_GEN_LOCK): $(X_HEEP_CFG) $(PADS_CFG) | $(BUILD_DIR)/
 	@echo "### Building X-HEEP MCU..."
 	$(MAKE) -f $(XHEEP_MAKE) mcu-gen
 	touch $@
@@ -142,27 +137,21 @@ gr-heep-gen-force:
 gr-heep-gen: $(GR_HEEP_GEN_LOCK)
 $(GR_HEEP_GEN_LOCK): $(GR_HEEP_GEN_CFG) $(GR_HEEP_TOP_TPL) $(MCU_GEN_LOCK)
 	@echo "### Generating gr-HEEP top and pad rings..."
-	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
-		--outdir $(ROOT_DIR)/hw/top/ \
-		--external_pads $(EXT_PAD_CFG) \
-		--tpl-sv $(GR_HEEP_TOP_TPL)
-	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
-		--outdir $(ROOT_DIR)/hw/pad-ring/ \
-		--external_pads $(EXT_PAD_CFG) \
-		--tpl-sv $(ROOT_DIR)/hw/pad-ring/pad_ring.sv.tpl
-	python3 $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
-		--outdir $(ROOT_DIR)/tb/ \
-		--external_pads $(EXT_PAD_CFG) \
-		--tpl-sv $(ROOT_DIR)/tb/tb_util.svh.tpl
+	$(PYTHON) $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
+		--outtpl $(GR_HEEP_TOP_TPL)
+	$(PYTHON) $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
+		--outtpl $(ROOT_DIR)/hw/pad-ring/pad_ring.sv.tpl
+	$(PYTHON) $(XHEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
+		--outtpl $(ROOT_DIR)/tb/tb_util.svh.tpl
 	@echo "### Generating gr-HEEP files..."
-	python3 util/gr-heep-gen.py $(GR_HEEP_GEN_OPTS) \
+	$(PYTHON) util/gr-heep-gen.py $(GR_HEEP_GEN_OPTS) \
 		--outdir hw/packages \
 		--tpl-sv hw/packages/gr_heep_pkg.sv.tpl \
 		--corev_pulp $(COREV_PULP)
-	python3 util/gr-heep-gen.py $(GR_HEEP_GEN_OPTS) \
+	$(PYTHON) util/gr-heep-gen.py $(GR_HEEP_GEN_OPTS) \
 		--outdir hw/peripherals \
 		--tpl-sv hw/peripherals/gr_heep_peripherals.sv.tpl
-	python3 util/gr-heep-gen.py $(GR_HEEP_GEN_OPTS) \
+	$(PYTHON) util/gr-heep-gen.py $(GR_HEEP_GEN_OPTS) \
 		--outdir sw/external/lib/runtime \
 		--tpl-c sw/external/lib/runtime/gr_heep.h.tpl
 	$(FUSESOC) run --no-export --target lint polito:gr_heep:gr_heep
@@ -192,8 +181,8 @@ vivado-fpga-pgm:
 ## Build simulation model (do not launch simulation)
 .PHONY: verilator-build
 verilator-build: $(GR_HEEP_GEN_LOCK)
-	$(FUSESOC) run --no-export --target sim --tool verilator --build $(FUSESOC_FLAGS) polito:gr_heep:gr_heep \
-		$(FUSESOC_ARGS)
+	$(FUSESOC) --cores-root . run --no-export --target=sim --tool=verilator $(FUSESOC_FLAGS) --build polito:gr_heep:gr_heep \
+		$(FUSESOC_PARAM) 2>&1 | tee buildsim.log
 
 ## Build simulation model and launch simulation
 .PHONY: verilator-sim
@@ -257,19 +246,19 @@ gdb: $(GR_HEEP_GEN_LOCK)
 ## @section Software
 
 ## gr-HEEP applications
-.PHONY: app
-app: $(GR_HEEP_GEN_LOCK) | $(BUILD_DIR)/sw/app/
-ifneq ($(APP_MAKE),)
-	@echo "### Calling application-specific makefile '$(APP_MAKE)'..."
-	$(MAKE) -C $(dir $(APP_MAKE))
-endif
-	@echo "### Building application for SRAM execution with GCC compiler..."
-	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) $(MAKECMDGOALS) LINK_FOLDER=$(LINK_FOLDER) ARCH=$(ARCH)
-	find $(SW_BUILD_DIR)/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app/ \;
+# .PHONY: app
+# app: $(GR_HEEP_GEN_LOCK) | $(BUILD_DIR)/sw/app/
+# ifneq ($(APP_MAKE),)
+# 	@echo "### Calling application-specific makefile '$(APP_MAKE)'..."
+# 	$(MAKE) -C $(dir $(APP_MAKE))
+# endif
+# 	@echo "### Building application for SRAM execution with GCC compiler..."
+# 	CDEFS=$(CDEFS) $(MAKE) -f $(XHEEP_MAKE) $(MAKECMDGOALS) LINK_FOLDER=$(LINK_FOLDER) ARCH=$(ARCH)
+# 	find $(SW_BUILD_DIR)/ -maxdepth 1 -type f -name "main.*" -exec cp '{}' $(BUILD_DIR)/sw/app/ \;
 
 ## Dummy target to force software rebuild
-$(PARAMS):
-	@echo "### Rebuilding software..."
+# $(PARAMS):
+# 	@echo "### Rebuilding software..."
 
 ## @section Utilities
 
@@ -360,10 +349,9 @@ lint: $(GR_HEEP_GEN_LOCK)
 
 # ----- INCLUDE X-HEEP RULES ----- #
 export X_HEEP_CFG
-export MCU_CFG_PERIPHERALS
-export PAD_CFG
-export EXT_PAD_CFG
+export PADS_CFG
 export EXTERNAL_DOMAINS
+export XHEEP_CONFIG_CACHE
 export FLASHWRITE_FILE
 export HEEP_DIR = $(ROOT_DIR)/hw/vendor/x-heep
 XHEEP_MAKE 		= $(HEEP_DIR)/external.mk

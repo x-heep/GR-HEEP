@@ -22,6 +22,7 @@ lint_off -rule UNUSED -file "*gr_heep_top.sv" -match "Signal is not*used: '*_rsp
 lint_off -rule UNUSED -file "*gr_heep_top.sv" -match "Signal is not*used: '*_resp'"
 lint_off -rule UNUSED -file "*gr_heep_top.sv" -match "Signal is not*used: '*in_x'"
 lint_off -rule UNUSED -file "*gr_heep_top.sv" -match "Bits of signal are not used: 'external_subsystem_powergate_switch_n'[1]"
+lint_off -rule UNUSED -file "*gr_heep_top.sv" -match "Signal is not used: 'dma_done'"
 
 lint_off -rule UNDRIVEN -file "*gr_heep_top.sv" -match "Signal is not driven: '*_powergate_*'"
 lint_off -rule UNDRIVEN -file "*gr_heep_top.sv" -match "Signal is not driven: '*out_x'"
@@ -29,3 +30,5 @@ lint_off -rule UNDRIVEN -file "*gr_heep_top.sv" -match "Signal is not driven: '*
 lint_off -rule UNDRIVEN -file "*gr_heep_top.sv" -match "Signal is not driven: '*_rsp'"
 lint_off -rule UNDRIVEN -file "*gr_heep_top.sv" -match "Signal is not driven: '*_resp'"
 lint_off -rule UNDRIVEN -file "*gr_heep_top.sv" -match "Bits of signal are not driven: 'external_subsystem_powergate_switch_ack_n'[1]"
+
+lint_off -rule SYNCASYNCNET -file "*gr_heep_top.sv" -match "*"
