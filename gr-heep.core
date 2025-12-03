@@ -1,0 +1,135 @@
+CAPI=2:
+
+# Copyright 2025 X-HEEP
+# Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+
+name: x-heep.org:systems:gr-heep
+description: GR-HEEP extended SoC (from X-HEEP).
+
+filesets:
+  files_rtl_generic:
+    depend:
+    - x-heep::packages
+    - x-heep:ip:pad_control
+    - openhwgroup.org:systems:core-v-mini-mcu
+    files:
+    - hw/gr-heep/gr_heep_pkg.sv
+    - hw/gr-heep/gr_heep_xbar.sv
+    - hw/gr-heep/gr_heep_bus.sv
+    - hw/gr-heep/gr_heep_pad_ring.sv
+    - hw/gr-heep/gr_heep_peripherals.sv
+    - hw/gr-heep/gr_heep.sv
+    file_type: systemVerilogSource
+  
+  files_verilator_waiver:
+    files:
+    - hw/gr-heep/gr_heep_waivers.vlt
+    - tb/tb.vlt
+    - tb/tb_v5.vlt
+    file_type: vlt
+  
+  tb-verilator:
+    files:
+    - tb/XHEEP_CmdLineOptions.hh: { is_include_file: true }
+    - tb/XHEEP_CmdLineOptions.cpp
+    - tb/tb_top.cpp
+    file_type: cppSource
+  
+  tb-harness:
+    files:
+    - tb/tb_util.svh: {is_include_file: true}
+    - tb/yosys_spiflash.sv
+    - tb/testharness.sv
+    file_type: systemVerilogSource
+  
+  uartdpi:
+    depend:
+    - lowrisc:dv_dpi:uartdpi
+  
+  systemverilog_only_simjtag:
+    depend:
+    - pulp-platform.org::pulpissimo_simjtag
+
+parameters:
+  JTAG_DPI:
+    datatype: int
+    paramtype: vlogparam
+    description: |
+      Enables testbench JTAG DIPs. Admitted values: 1|0.
+    default: 0
+  X_EXT:
+    datatype: int
+    paramtype: vlogparam
+    description: |
+      Enables CORE-V-XIF interface for the CV32E40X and CV32E40PX cores. Admitted values: 1|0.
+    default: 0
+  USE_UPF:
+    datatype: bool
+    paramtype: vlogdefine
+    description: |
+      Enables simulation with UPF with Modelsim/VCS
+  REMOVE_OBI_FIFO:
+    datatype: bool
+    paramtype: vlogdefine
+    description: |
+      Remove the FIFO between the BUS and the peripherals subsystems
+  SYNTHESIS:
+    datatype: bool
+    paramtype: vlogdefine
+    default: false
+  VERILATOR: #used by SV2V
+    datatype: bool
+    paramtype: vlogdefine
+    default: false
+  
+scripts:
+  # Simulation utils
+  remove_uart_log:
+    cmd: [sh, -c, rm -f uart0.log]
+  print_uart_log:
+    cmd: [sh, -c, cat uart0.log]
+
+targets:
+  default: &default_target
+    filesets:
+    - files_rtl_generic
+    - target_sim? (tool_verilator? (files_verilator_waiver))
+    toplevel: [gr_heep]
+  
+  sim:
+    <<: *default_target
+    default_tool: modelsim
+    filesets_append:
+    - tb-harness
+    - tool_verilator? (uartdpi)
+    - tool_verilator? (tb-verilator)
+    - tool_verilator? (systemverilog_only_simjtag)
+    toplevel:
+    - tool_verilator? (testharness)
+    hooks:
+      pre_run:
+        - remove_uart_log
+      post_run:
+        - print_uart_log
+    parameters:
+    - JTAG_DPI
+    - X_EXT
+    - USE_UPF
+    - REMOVE_OBI_FIFO
+    tools:
+      verilator:
+        mode: cc
+        verilator_options:
+          - '--cc'
+          - '--trace'
+          - '--trace-fst'
+          - '--trace-structs'
+          - '--trace-params'
+          - '--trace-max-array 1024'
+          - '--x-assign unique'
+          - '--x-initial unique'
+          - '--exe tb_top.cpp'
+          - '-CFLAGS "-Wall -fpermissive"'
+          - '-LDFLAGS "-pthread -lutil -lelf"'
+          - "-Wall"

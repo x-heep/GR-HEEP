@@ -152,4 +152,4 @@ module gr_heep_xbar #(
       );
     end
   endgenerate
-endmodule : ext_xbar
+endmodule : gr_heep_xbar

@@ -136,7 +136,7 @@ module gr_heep_bus #(
 `ifndef SYNTHESIS
   // show writes if requested
   always_ff @(posedge clk_i, negedge rst_ni) begin : verbose_writes
-    if ($value$plusargs("verbose") != 0 && heep_core_data_req_i.req && heep_core_data_req_i.we)
+    if ($test$plusargs("verbose") != 0 && heep_core_data_req_i.req && heep_core_data_req_i.we)
       $display(
           "write addr=0x%08x: data=0x%08x", heep_core_data_req_i.addr, heep_core_data_req_i.wdata
       );
@@ -181,4 +181,4 @@ module gr_heep_bus #(
     .slave_resp_i(ext_slave_resp_i)
   );
 
-endmodule
+endmodule : gr_heep_bus

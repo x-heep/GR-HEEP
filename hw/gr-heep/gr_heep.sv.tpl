@@ -237,6 +237,17 @@ module gr_heep (
     .exit_value_o (exit_value)
   );
 
+  assign heep_slave_req = '0;
+  assign heep_core_instr_rsp = '0;
+  assign heep_core_data_rsp = '0;
+  assign heep_debug_master_rsp = '0;
+  assign heep_dma_read_rsp = '0;
+  assign heep_dma_write_rsp = '0;
+  assign heep_dma_addr_rsp = '0;
+  assign hw_fifo_rsp = '0;
+  assign heep_peripheral_rsp = '0;
+  assign ext_ao_peripheral_req = '0;
+
   assign hw_fifo_done = '0;
   assign hw_fifo_rsp = '0;
   assign ext_dma_slot_tx = '0;
@@ -247,7 +258,7 @@ module gr_heep (
 
   // Pad ring
   // --------
-  pad_ring pad_ring_i (
+  gr_heep_pad_ring gr_heep_pad_ring_i (
 % for pad in xheep.get_padring().total_pad_list:
 ${pad.pad_ring_bonding_bonding}
 % endfor

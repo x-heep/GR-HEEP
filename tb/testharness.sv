@@ -96,7 +96,7 @@ module testharness #(
     $display("%t: the parameter CLK_FREQUENCY is %d KHz", $time, CLK_FREQUENCY);
   end
 
-  gr_heep_top gr_heep_top_i (
+  gr_heep gr_heep_i (
       .clk_i,
       .rst_ni,
       .boot_select_i,
@@ -158,16 +158,16 @@ module testharness #(
       .i2c_sda_io(i2c_sda)
   );
 
-  assign exit_value_o[31:0] = gr_heep_top_i.exit_value[31:0];
+  assign exit_value_o[31:0] = gr_heep_i.exit_value[31:0];
 
   // Power switch emulation
   // ----------------------
   always_ff @(posedge clk_i) begin : blockName
     for (int unsigned i = 0; i <= SWITCH_ACK_LATENCY; i++) begin
       if (i == 0) begin
-        external_subsystem_powergate_switch_ack_n[0] <= gr_heep_top_i.external_subsystem_powergate_switch_n;
-        cpu_subsystem_powergate_switch_ack_n[0] <= gr_heep_top_i.cpu_subsystem_powergate_switch_n;
-        peripheral_subsystem_powergate_switch_ack_n[0] <= gr_heep_top_i.peripheral_subsystem_powergate_switch_n;
+        external_subsystem_powergate_switch_ack_n[0] <= gr_heep_i.external_subsystem_powergate_switch_n;
+        cpu_subsystem_powergate_switch_ack_n[0] <= gr_heep_i.cpu_subsystem_powergate_switch_n;
+        peripheral_subsystem_powergate_switch_ack_n[0] <= gr_heep_i.peripheral_subsystem_powergate_switch_n;
       end else begin
         external_subsystem_powergate_switch_ack_n[i] <= external_subsystem_powergate_switch_ack_n[i-1];
         cpu_subsystem_powergate_switch_ack_n[i] <= cpu_subsystem_powergate_switch_ack_n[i-1];
@@ -176,9 +176,9 @@ module testharness #(
     end
   end
 
-  assign gr_heep_top_i.external_subsystem_powergate_switch_ack_n = external_subsystem_powergate_switch_ack_n[SWITCH_ACK_LATENCY];
-  assign gr_heep_top_i.cpu_subsystem_powergate_switch_ack_n = cpu_subsystem_powergate_switch_ack_n[SWITCH_ACK_LATENCY];
-  assign gr_heep_top_i.peripheral_subsystem_powergate_switch_ack_n = peripheral_subsystem_powergate_switch_ack_n[SWITCH_ACK_LATENCY];
+  assign gr_heep_i.external_subsystem_powergate_switch_ack_n = external_subsystem_powergate_switch_ack_n[SWITCH_ACK_LATENCY];
+  assign gr_heep_i.cpu_subsystem_powergate_switch_ack_n = cpu_subsystem_powergate_switch_ack_n[SWITCH_ACK_LATENCY];
+  assign gr_heep_i.peripheral_subsystem_powergate_switch_ack_n = peripheral_subsystem_powergate_switch_ack_n[SWITCH_ACK_LATENCY];
 
   uartdpi #(
       .BAUD('d256000),

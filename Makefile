@@ -1,5 +1,3 @@
-# ----- CONFIGURATION ----- #
-
 # Global configuration
 ROOT_DIR		:= $(realpath .)
 X_HEEP_DIR 		:= $(ROOT_DIR)/hw/vendor/x-heep
@@ -34,6 +32,9 @@ GR_HEEP_GEN_CFG	 := config/gr-heep-cfg.hjson
 GR_HEEP_GEN_OPTS := --cfg $(GR_HEEP_GEN_CFG)
 GR_HEEP_GEN_LOCK := $(BUILD_DIR)/.gr-heep-gen.lock
 
+# Software
+PROJECT := hello_world
+
 .PHONY: verible
 verible:
 	@for file in $(RTL_FILES); do \
@@ -62,7 +63,7 @@ gr-heep-gen: $(GR_HEEP_GEN_LOCK)
 $(GR_HEEP_GEN_LOCK): $(GR_HEEP_GEN_CFG) $(MCU_GEN_LOCK)
 	@echo "### Generating gr-HEEP..."
 	$(PYTHON) $(X_HEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
-		--outtpl $(ROOT_DIR)/hw/gr-heep/gr_heep_top.sv.tpl
+		--outtpl $(ROOT_DIR)/hw/gr-heep/gr_heep.sv.tpl
 	$(PYTHON) $(X_HEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
 		--outtpl $(ROOT_DIR)/hw/gr-heep/gr_heep_pad_ring.sv.tpl
 	$(PYTHON) $(X_HEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
@@ -78,8 +79,21 @@ $(GR_HEEP_GEN_LOCK): $(GR_HEEP_GEN_CFG) $(MCU_GEN_LOCK)
 		--outdir sw/external/lib/runtime \
 		--tpl-c sw/external/lib/runtime/gr_heep.h.tpl
 	$(MAKE) verible
-	@echo "### DONE! gr-HEEP files generated successfully"
+	@echo "### DONE! gr-HEEP generated successfully"
 	touch $@
+
+## Verilator simulation with C++
+.PHONY: verilator-build
+verilator-build:
+	$(FUSESOC) --cores-root . run --no-export --target=sim --tool=verilator $(FUSESOC_FLAGS) \
+		--build x-heep.org:systems:gr-heep $(FUSESOC_PARAM) 2>&1 | tee buildsim.log
+
+.PHONY: verilator-run-app
+verilator-run-app:
+	$(MAKE) -C $(X_HEEP_DIR) app
+	$(FUSESOC) --cores-root . run --no-export --target=sim --tool=verilator $(FUSESOC_FLAGS) \
+		--run x-heep.org:systems:gr-heep $(FUSESOC_PARAM) \
+		--run_options="+firmware=../../../sw/build/main.hex $(SIM_ARGS)"
 
 # Export variables
 export HEEP_DIR = $(X_HEEP_DIR)
@@ -87,6 +101,7 @@ export X_HEEP_CFG
 export PADS_CFG
 export EXTERNAL_DOMAINS
 export XHEEP_CONFIG_CACHE
+export PROJECT
 
 # Include X-HEEP targets
 XHEEP_MAKE = $(HEEP_DIR)/external.mk
