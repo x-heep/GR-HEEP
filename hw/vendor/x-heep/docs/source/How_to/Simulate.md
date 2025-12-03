@@ -2,8 +2,6 @@
 
 This project supports simulation with Verilator, Synopsys VCS, Siemens Questasim and Cadence Xcelium.
 We use [FuseSoC](https://github.com/olofk/fusesoc) for all the EDA tools we use. The `fusesoc` commands are used in the targets in the Makefile.
-For example, if you want to set the `FPU` and `COREV_PULP` parameters of the `cv32e40p` CPU,
-you need to add next to your compilation command `FUSESOC_PARAM="--COREV_PULP=1 --FPU=1"`
 Below the different EDA examples commands.
 
 ## Simulating with Verilator
