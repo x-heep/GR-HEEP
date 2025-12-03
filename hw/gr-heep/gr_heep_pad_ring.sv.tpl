@@ -7,7 +7,7 @@
 // Date: 07/11/2024
 // Description: GR-HEEP pad ring
 
-module pad_ring (
+module gr_heep_pad_ring (
 % for pad in xheep.get_padring().pad_list:
 ${pad.pad_ring_io_interface}
 ${pad.pad_ring_ctrl_interface}
