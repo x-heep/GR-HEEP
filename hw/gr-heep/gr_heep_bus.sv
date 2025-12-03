@@ -7,7 +7,7 @@
 // Date: 19/05/2023
 // Description: external peripheral bus for X-HEEP testbench
 
-module gr_heep_ext_bus #(
+module gr_heep_bus #(
   parameter int unsigned EXT_XBAR_NMASTER = 1,
   parameter int unsigned EXT_XBAR_NSLAVE = 1,
   // Dependent parameters: do not override

@@ -2,12 +2,12 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
-// File: gr_heep_top.sv
+// File: gr_heep.sv
 // Author: Luigi Giuffrida
 // Date: 16/10/2024
 // Description: tr-HEEP top-level module
 
-module gr_heep_top (
+module gr_heep (
     // X-HEEP interface
 % for pad in xheep.get_padring().total_pad_list:
   ${pad.x_heep_system_interface}
