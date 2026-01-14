@@ -6,7 +6,7 @@
   target_dir: "esl_epfl_cv32e40px",
 
   upstream: {
-    url: "https://github.com/esl-epfl/cv32e40px.git",
+    url: "https://github.com/x-heep/cv32e40px.git",
     rev: "1f75b23d2388c861cfc9660aee8a9961ea25134f",
   },
 

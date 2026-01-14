@@ -35,15 +35,15 @@ For testing purposes, the container can be built locally. To upgrade the tools i
 make docker-build
 ```
 
-This target will first pull the latest version of the toolchain from the [X-HEEP GitHub Releases](https://github.com/esl-epfl/x-heep/releases), and then build the Docker image using that toolchain. If you want to experiment with a different toolchain, you need to update the [`dockerfile`](./dockerfile) accordingly.
+This target will first pull the latest version of the toolchain from the [X-HEEP GitHub Releases](https://github.com/x-heep/x-heep/releases), and then build the Docker image using that toolchain. If you want to experiment with a different toolchain, you need to update the [`dockerfile`](./dockerfile) accordingly.
 
 ### Publishing an Updated Image
-There is no need to push the container manually. The container is automatically built and pushed to the [GHCR registry](https://ghcr.io/esl-epfl/x-heep/x-heep-toolchain:latest) by the [`create-release.yml`](/.github/workflows/create-release.yml) GitHub workflow. This must be launched manually from the [GitHub Actions tab](https://github.com/esl-epfl/x-heep/actions). Remember to specify the release tag when doing so.
+There is no need to push the container manually. The container is automatically built and pushed to the [GHCR registry](https://ghcr.io/x-heep/x-heep/x-heep-toolchain:latest) by the [`create-release.yml`](/.github/workflows/create-release.yml) GitHub workflow. This must be launched manually from the [GitHub Actions tab](https://github.com/x-heep/x-heep/actions). Remember to specify the release tag when doing so.
 
 ### Apptainer Version
 
 An Apptainer image (SIF format) can be automatically generated from the Docker layers using the following command:
 
 ```bash
-apptainer build x-heep-toolchain.sif docker://ghcr.io/esl-epfl/x-heep/x-heep-toolchain:latest
+apptainer build x-heep-toolchain.sif docker://ghcr.io/x-heep/x-heep/x-heep-toolchain:latest
 ```

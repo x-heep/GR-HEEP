@@ -18,7 +18,7 @@ Following you find ASIC implementations that uses X-HEEP.
 
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/esl-epfl/x-heep/refs/heads/main/docs/source/images/chips/heepocrates.png" />
+  <img src="https://raw.githubusercontent.com/x-heep/x-heep/refs/heads/main/docs/source/images/chips/heepocrates.png" />
 </p>
 
 <p  align="center">Figure 1: HEEPocrates Test Chip layout in TSMC 65nm LP </p>
@@ -64,7 +64,7 @@ Other resources that leverages `HEEPocrates` (silicon implementation, FPGA, or s
 [TCL](https://www.epfl.ch/labs/tcl/) lab of EPFL.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/esl-epfl/x-heep/refs/heads/main/docs/source/images/chips/heepnosis.png" />
+  <img src="https://raw.githubusercontent.com/x-heep/x-heep/refs/heads/main/docs/source/images/chips/heepnosis.png" />
 </p>
 
 <p  align="center">Figure 2: HEEPnosis Test Chip layout in GF 22nm FDX </p>

@@ -1,6 +1,6 @@
 # Peripheral Configuration
 
-The default configuration of the peripherals can be found in either [configs/general.hjson](https://github.com/esl-epfl/x-heep/blob/main/configs/general.hjson) or [configs/general.py](https://github.com/esl-epfl/x-heep/blob/main/configs/general.py). A custom configuration can be created through Python configuration.
+The default configuration of the peripherals can be found in either [configs/general.hjson](https://github.com/x-heep/x-heep/blob/main/configs/general.hjson) or [configs/general.py](https://github.com/x-heep/x-heep/blob/main/configs/general.py). A custom configuration can be created through Python configuration.
 
 ## Overall structure
 
@@ -18,7 +18,7 @@ Every peripheral has at least an offset and a length, which represent its positi
 
 ## Adding a custom configuration
 
-An example is shown in [configs/general.py](https://github.com/esl-epfl/x-heep/blob/main/configs/general.py). First, both domains must be created. If a domain is not created, X-HEEP will be built with the provided HJSON configuration. Base Peripheral domain starts from 0x20000000, User peripheral domain starts from 0x30000000, and each fills 1MB.
+An example is shown in [configs/general.py](https://github.com/x-heep/x-heep/blob/main/configs/general.py). First, both domains must be created. If a domain is not created, X-HEEP will be built with the provided HJSON configuration. Base Peripheral domain starts from 0x20000000, User peripheral domain starts from 0x30000000, and each fills 1MB.
 
 Each peripheral has its own class, that must be imported from `x_heep_gen.peripherals.base_peripherals.py`or `x_heep_gen.peripherals.user_peripherals.py`.
 
@@ -28,7 +28,7 @@ When creating a peripheral, the offset, length, and other peripheral dependent i
 
 When the peripheral is configured, it can be added to the corresponding domain with {py:meth}`x_heep_gen.peripherals.abstractions.PeripheralDomain.add_peripheral`. All changes made after this call to the peripheral will not be recorded.
 
-Since all base peripherals are mandatory, there is a method to add all base peripherals that were not added previously : {py:meth}`x_heep_gen.peripherals.base_peripherals.add_missing_peripherals`. The missing base peripherals are added with a default configuration based on [mcu_cfg.hjson](https://github.com/esl-epfl/x-heep/blob/main/mcu_cfg.hjson), but with undefined offsets (they will be computed during {py:meth}`x_heep_gen.system.XHeep.build`).
+Since all base peripherals are mandatory, there is a method to add all base peripherals that were not added previously : {py:meth}`x_heep_gen.peripherals.base_peripherals.add_missing_peripherals`. The missing base peripherals are added with a default configuration based on [mcu_cfg.hjson](https://github.com/x-heep/x-heep/blob/main/mcu_cfg.hjson), but with undefined offsets (they will be computed during {py:meth}`x_heep_gen.system.XHeep.build`).
 
 When method {py:meth}`x_heep_gen.system.XHeep.validate` is called, it performs basic sanity checks (all configuration files must exist, no peripheral should overlap another one, peripherals shouldn't be outside the domain, ...).
 

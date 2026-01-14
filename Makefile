@@ -35,6 +35,9 @@ GR_HEEP_GEN_LOCK := $(BUILD_DIR)/.gr-heep-gen.lock
 # Software
 PROJECT := hello_world
 
+# Vendor
+MODULE_NAME ?= x-heep
+
 .PHONY: verible
 verible:
 	@for file in $(RTL_FILES); do \
@@ -94,6 +97,21 @@ verilator-run-app:
 	$(FUSESOC) --cores-root . run --no-export --target=sim --tool=verilator $(FUSESOC_FLAGS) \
 		--run x-heep.org:systems:gr-heep $(FUSESOC_PARAM) \
 		--run_options="+firmware=../../../sw/build/main.hex $(SIM_ARGS)"
+
+## @section Utilities
+
+## Update vendor submodules
+## @note These targets are used to update the vendored submodules.
+## @param MODULE_NAME=module_name The name of the submodule to update when using vendor-update.
+.PHONY: vendor-update
+vendor-update:
+	@echo "Updating vendored module '$(MODULE_NAME)'..."
+	$(PYTHON) util/vendor.py hw/vendor/$(MODULE_NAME).vendor.hjson -Uv
+
+.PHONY: vendor-update-all
+vendor-update-all:
+	@echo "Updating all vendored modules..."
+	find hw/vendor -maxdepth 1 -type f -name "*.vendor.hjson" -exec ./util/vendor.py -vU {} \;
 
 # Export variables
 export HEEP_DIR = $(X_HEEP_DIR)

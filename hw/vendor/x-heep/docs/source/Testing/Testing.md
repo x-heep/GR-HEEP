@@ -45,7 +45,7 @@ This workflow ensures the stability and integrity of the codebase by running a s
 2.  **`compile-apps`**:
     *   **Purpose**: Compiles all software applications with both GCC and Clang to ensure they build correctly.
     *   **Dependencies**: Depends on `determine-image-tag` to select the correct Docker image.
-    *   **Environment**: Runs inside the `ghcr.io/esl-epfl/x-heep/x-heep-toolchain` Docker container.
+    *   **Environment**: Runs inside the `ghcr.io/x-heep/x-heep/x-heep-toolchain` Docker container.
     *   **Steps**:
         *   Generates the MCU configuration using `make mcu-gen X_HEEP_CFG=configs/ci.hjson`.
         *   Executes `test/test_apps/test_apps.py` with the `--compile-only` flag to build all applications, without simulating them. This is done to offer a quick feedback about the apps' integrity, before their runtime behaviour is checked in RTL simulation.
@@ -117,26 +117,37 @@ Minor bug fixes or feature improvements may not require/justify a full new relea
 
 **Jobs:**
 
-1.  **`prepare-release`**:
+1.  **`check-changes`**:
+    *   Checks previous release tag.
+    *   Downloads `tool-versions.env` from the previous release to compare GCC, LLVM, Verilator, and Verible versions.
+    *   Checks for changes in Docker-related files (`util/docker/`, `util/conda_environment.yml`, `util/python-requirements.txt`, `docs/python-requirements.txt`).
+    *   Sets outputs `rebuild_toolchain` and `rebuild_docker` to avoid unnecessary rebuilds.
+
+2.  **`prepare-release`**:
     *   Creates a new release branch (`release/<release_tag>`).
     *   Updates the version in `core-v-mini-mcu.core` and the toolchain version in `util/docker/dockerfile`.
     *   Commits and pushes the changes to the new branch.
-    *   Creates a **draft** GitHub release, which will be populated with assets by later jobs.
+    *   Creates a **draft** GitHub release.
 
-2.  **`build-and-upload-toolchain`**:
+3.  **`build-and-upload-toolchain`**:
+    *   **Conditional**: Runs the build only if `rebuild_toolchain` is true.
     *   Builds the RISC-V GCC and Clang/LLVM toolchains from the sources specified in the workflow inputs.
     *   Packages the compiled toolchains into a `.tar.gz` file.
-    *   Uploads this tarball as an asset to the draft GitHub release.
+    *   If `rebuild_toolchain` is false, it downloads the toolchain asset from the previous release.
+    *   Uploads the toolchain tarball as an asset to the draft GitHub release.
+    *   Uploads a `tool-versions.env` file containing version metadata.
 
-3.  **`build-docker`**:
-    *   Downloads the toolchain asset that was just uploaded to the draft release.
+4.  **`build-docker`**:
+    *   **Conditional**: Runs the build only if `rebuild_docker` is true.
+    *   Downloads the toolchain asset from the draft release.
     *   Builds the `x-heep-toolchain` Docker image, injecting the new toolchain.
     *   Pushes the new Docker image to the GitHub Container Registry (GHCR) with the release tag.
+    *   If `rebuild_docker` is false, it retags the previous release's Docker image with the new tag.
 
-4.  **`create-version-pr`**:
+5.  **`create-version-pr`**:
     *   Creates a new pull request to merge the release branch back into `main`. This PR contains the version bumps.
 
-5.  **`cleanup-on-failure`**:
+6.  **`cleanup-on-failure`**:
     *   This job runs only if any of the previous jobs fail.
     *   It automatically cleans up by deleting the draft release, the release tag, the remote release branch, and the pushed Docker image from GHCR. This prevents leftovers from partial, broken releases.
 

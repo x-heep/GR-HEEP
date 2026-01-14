@@ -46,7 +46,7 @@ We recomend using the [vendor](https://opentitan.org/book/util/doc/vendor.html) 
   target_dir: "esl_epfl_x_heep"
 
   upstream: {
-    url: "https://github.com/esl-epfl/x-heep.git"
+    url: "https://github.com/x-heep/x-heep.git"
     rev: "main"
   }
 

@@ -4,7 +4,7 @@ There are two ways of setting up X-HEEP. You can either use the provided Docker 
 
 ## Docker setup
 
-A Docker image containing all the required software dependencies is available on [github-packages](https://ghcr.io/esl-epfl/x-heep/x-heep-toolchain:latest).
+A Docker image containing all the required software dependencies is available on [github-packages](https://ghcr.io/x-heep/x-heep/x-heep-toolchain:latest).
 
 It is only required to [install Docker](https://docs.docker.com/engine/install/), pull the image and run the container. The pull and run steps are wrapped in dedicated `makefile` targets that you can access from the top-level directory as:
 ```bash
@@ -143,6 +143,10 @@ git checkout llvmorg-19.1.4
 cmake -S llvm -B build -G "Ninja" -DLLVM_ENABLE_PROJECTS="clang;lld" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=${INSTALL_DIR} -DLLVM_TARGETS_TO_BUILD="RISCV" -DLLVM_USE_LINKER=lld
 cmake --build build --target install # or ninja -C build install
 ```
+
+By default, when compiling an application with Clang, X-HEEP will link with the LLD linker.
+If you want to use the GCC linker, you will need to pass to the `make app` target the
+`CLANG_LINKER_USE_LD=1` option.
 
 ### 4. Install Verilator:
 

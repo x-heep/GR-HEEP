@@ -104,7 +104,7 @@ FOREACH(file_path ${new_list})
 ENDFOREACH()
 
 LIST(REMOVE_DUPLICATES dir_list_str) 
-string(REPLACE ";" "" dir_list_str ${dir_list_str}) #This has been moved here to avoid multiple includes of the same path, see: https://github.com/esl-epfl/x-heep/issues/470
+string(REPLACE ";" "" dir_list_str ${dir_list_str}) #This has been moved here to avoid multiple includes of the same path, see: https://github.com/x-heep/x-heep/issues/470
 LIST(REMOVE_DUPLICATES h_dir_list_)
 
 
@@ -432,8 +432,10 @@ message( "${Magenta}Linker file: ${LINKER_SCRIPT}${ColourReset}")
 # Setting-up the properties, elf is
 set_target_properties(${MAINFILE}.elf PROPERTIES LINK_DEPENDS "${LINKER_SCRIPT}")
 
+message(STATUS "${Magenta}CLANG_LINKER_USE_LD = '${CLANG_LINKER_USE_LD}'")
+
 # Linker control (support both GCC and Clang)
-if (${COMPILER} MATCHES "clang")
+if (${COMPILER} MATCHES "clang" AND NOT CLANG_LINKER_USE_LD)
   # Linker flags for Clang
   message(STATUS "${Magenta}Using Clang/lld specific linker flags${ColourReset}")
   SET(CMAKE_EXE_LINKER_FLAGS  "-T ${LINKER_SCRIPT}  \

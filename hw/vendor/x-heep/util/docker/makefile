@@ -1,6 +1,6 @@
 ROOT_DIR 			:= $(shell git rev-parse --show-toplevel)
 TAG 				?= $(shell git describe --tags --abbrev=0)
-GITHUB_REPOSITORY 	:= ghcr.io/esl-epfl/x-heep
+GITHUB_REPOSITORY 	:= ghcr.io/x-heep/x-heep
 IMAGE_NAME 			:= x-heep-toolchain
 IMAGE_ID 			:= $(GITHUB_REPOSITORY)/$(IMAGE_NAME)
 

@@ -8,6 +8,11 @@ MAKE	= make
 mkfile_path := $(shell dirname "$(realpath $(firstword $(MAKEFILE_LIST)))")
 $(info $$You are executing from: $(mkfile_path))
 
+# Helper variables for Make string manipulation
+empty :=
+space := $(empty) $(empty)
+comma := ,
+
 # Include the self-documenting tool
 export FILE_FOR_HELP=$(mkfile_path)/Makefile
 
@@ -58,14 +63,52 @@ PYTHON_X_HEEP_CFG ?=
 # Cached mcu-gen xheep configuration
 XHEEP_CONFIG_CACHE ?= $(BUILD_DIR)/xheep_config_cache.pickle
 
+# MCU-Gen template files to generate
+MCU_GEN_TEMPLATES = \
+	hw/core-v-mini-mcu/include/core_v_mini_mcu_pkg.sv.tpl \
+	hw/core-v-mini-mcu/core_v_mini_mcu.sv.tpl \
+	hw/core-v-mini-mcu/system_bus.sv.tpl \
+	hw/core-v-mini-mcu/system_xbar.sv.tpl \
+	hw/core-v-mini-mcu/memory_subsystem.sv.tpl \
+	hw/core-v-mini-mcu/ao_peripheral_subsystem.sv.tpl \
+	hw/core-v-mini-mcu/peripheral_subsystem.sv.tpl \
+	hw/core-v-mini-mcu/cpu_subsystem.sv.tpl \
+	hw/system/x_heep_system.sv.tpl \
+	hw/system/pad_ring.sv.tpl \
+	hw/system/pad_control/data/pad_control.hjson.tpl \
+	hw/system/pad_control/rtl/pad_control.sv.tpl \
+	hw/ip/soc_ctrl/data/soc_ctrl.hjson.tpl \
+	hw/ip/power_manager/rtl/power_manager.sv.tpl \
+	hw/ip/power_manager/data/power_manager.hjson.tpl \
+	hw/ip/pdm2pcm/data/pdm2pcm.hjson.tpl \
+	hw/ip/pdm2pcm/rtl/pdm2pcm.sv.tpl \
+	hw/ip/pdm2pcm/rtl/pdm_core.sv.tpl \
+	hw/ip/dma/data/dma.hjson.tpl \
+	hw/ip/dma/data/dma_conf.svh.tpl \
+	hw/fpga/sram_wrapper.sv.tpl \
+	hw/fpga/scripts/generate_sram.tcl.tpl \
+	tb/tb_util.svh.tpl \
+	$(LINK_FOLDER)/link.ld.tpl \
+	$(LINK_FOLDER)/link_flash_load.ld.tpl \
+	$(LINK_FOLDER)/link_flash_exec.ld.tpl \
+	sw/device/lib/crt/crt0.S.tpl \
+	sw/device/lib/runtime/core_v_mini_mcu.h.tpl \
+	sw/device/lib/runtime/core_v_mini_mcu_memory.h.tpl \
+	sw/device/lib/drivers/power_manager/power_manager.h.tpl \
+	scripts/pnr/core-v-mini-mcu.upf.tpl \
+	scripts/pnr/core-v-mini-mcu.dc.upf.tpl \
+	util/profile/run_profile.sh.tpl
+
 # Compiler options are 'gcc' (default) and 'clang'
 COMPILER 		?= gcc
-# Compiler prefix options are 'riscv32-unknown-' (default) and 'riscv32-corev-'
-COMPILER_PREFIX ?= riscv32-corev-
+# Compiler prefix options are 'riscv32-corev-' (default) and 'riscv32-unknown-'
+COMPILER_PREFIX ?= $(shell basename $$(ls $(RISCV_XHEEP)/bin/*gcc 2>/dev/null | head -1) | sed 's/elf-gcc$$//')
 # Compiler flags to be passed (for both linking and compiling)
 COMPILER_FLAGS 	?=
 # Arch options are any RISC-V ISA string supported by the CPU. Default 'rv32imc_zicsr'
 ARCH     		?= rv32imc_zicsr
+# Tell clang to use the gcc link instead of the llvm linker (useful for old clang). Default '0' (set it to 1)
+CLANG_LINKER_USE_LD ?= 0
 
 # Path relative from the location of sw/Makefile from which to fetch source files. The directory of that file is the default value.
 SOURCE 	 ?= $(".")
@@ -122,44 +165,13 @@ conda:
 ## @param PYTHON_X_HEEP_CFG=[configs/general.py(default),<path-to-config-file>]
 mcu-gen:
 	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --config $(X_HEEP_CFG) --python_config $(PYTHON_X_HEEP_CFG) --pads_cfg $(PADS_CFG) --cpu $(CPU) --bus $(BUS) --memorybanks $(MEMORY_BANKS) --memorybanks_il $(MEMORY_BANKS_IL) --external_domains $(EXTERNAL_DOMAINS)
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/core-v-mini-mcu/include/core_v_mini_mcu_pkg.sv.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/core-v-mini-mcu/core_v_mini_mcu.sv.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/core-v-mini-mcu/system_bus.sv.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/core-v-mini-mcu/system_xbar.sv.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/core-v-mini-mcu/memory_subsystem.sv.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/core-v-mini-mcu/ao_peripheral_subsystem.sv.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/core-v-mini-mcu/peripheral_subsystem.sv.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/core-v-mini-mcu/cpu_subsystem.sv.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/system/x_heep_system.sv.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/system/pad_ring.sv.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/system/pad_control/data/pad_control.hjson.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/system/pad_control/rtl/pad_control.sv.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/ip/soc_ctrl/data/soc_ctrl.hjson.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/ip/power_manager/rtl/power_manager.sv.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/ip/power_manager/data/power_manager.hjson.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/ip/pdm2pcm/data/pdm2pcm.hjson.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/ip/pdm2pcm/rtl/pdm2pcm.sv.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/ip/pdm2pcm/rtl/pdm_core.sv.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/ip/dma/data/dma.hjson.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/ip/dma/data/dma_conf.svh.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/fpga/sram_wrapper.sv.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl hw/fpga/scripts/generate_sram.tcl.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl tb/tb_util.svh.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl $(LINK_FOLDER)/link.ld.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl $(LINK_FOLDER)/link_flash_load.ld.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl $(LINK_FOLDER)/link_flash_exec.ld.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl sw/device/lib/crt/crt0.S.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl sw/device/lib/runtime/core_v_mini_mcu.h.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl sw/device/lib/runtime/core_v_mini_mcu_memory.h.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl sw/device/lib/drivers/power_manager/power_manager.h.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl scripts/pnr/core-v-mini-mcu.upf.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl scripts/pnr/core-v-mini-mcu.dc.upf.tpl
-	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl util/profile/run_profile.sh.tpl
+	$(PYTHON) util/mcu_gen.py --cached_path $(XHEEP_CONFIG_CACHE) --cached --outtpl "$(subst $(space),$(comma),$(MCU_GEN_TEMPLATES))"
 	bash -c "cd hw/ip/soc_ctrl; source soc_ctrl_gen.sh; cd ../../../"
 	bash -c "cd hw/ip/power_manager; source power_manager_gen.sh; cd ../../../"
 	bash -c "cd hw/ip/pdm2pcm; source pdm2pcm_gen.sh; cd ../../../"
 	bash -c "cd hw/system/pad_control; source pad_control_gen.sh; cd ../../../"
 	bash -c "cd hw/ip/dma; source dma_gen.sh; cd ../../../"
+	bash -c "cd hw/ip/boot_rom; make clean; make all; cd ../../../"
 	$(MAKE) verible
 
 ## Display mcu_gen.py help
@@ -186,16 +198,17 @@ format-python:
 ## @param TARGET=sim(default),systemc,pynq-z2,nexys-a7-100t,zcu104,zcu102
 ## @param LINKER=on_chip(default),flash_load,flash_exec
 ## @param COMPILER=gcc(default),clang
-## @param COMPILER_PREFIX=riscv32-unknown-(default)
+## @param COMPILER_PREFIX=riscv32-corev-(default),riscv32-unknown-
 ## @param ARCH=rv32imc(default),<any_RISC-V_ISA_string_supported_by_the_CPU>
 app: clean-app
-	@$(MAKE) -C sw PROJECT=$(PROJECT) TARGET=$(TARGET) LINKER=$(LINKER) LINK_FOLDER=$(LINK_FOLDER) COMPILER=$(COMPILER) COMPILER_PREFIX=$(COMPILER_PREFIX) COMPILER_FLAGS=$(COMPILER_FLAGS) ARCH=$(ARCH) SOURCE=$(SOURCE) \
+	@$(MAKE) -C sw PROJECT=$(PROJECT) TARGET=$(TARGET) LINKER=$(LINKER) LINK_FOLDER=$(LINK_FOLDER) COMPILER=$(COMPILER) COMPILER_PREFIX=$(COMPILER_PREFIX) COMPILER_FLAGS="$(COMPILER_FLAGS)" ARCH=$(ARCH) SOURCE=$(SOURCE) CLANG_LINKER_USE_LD=$(CLANG_LINKER_USE_LD) \
 	|| { \
 	echo "\033[0;31mHmmm... seems like the compilation failed...\033[0m"; \
 	echo "\033[0;31mIf you do not understand why, it is likely that you either:\033[0m"; \
 	echo "\033[0;31m  a) offended the Leprechaun of Electronics\033[0m"; \
 	echo "\033[0;31m  b) forgot to run make mcu-gen\033[0m"; \
-	echo "\033[0;31mI would start by checking b) if I were you!\033[0m"; \
+	echo "\033[0;31m  c) forgot to set the correct compiler parameters (check the docs!)\033[0m"; \
+	echo "\033[0;31mI would start by checking b) or c) if I were you!\033[0m"; \
 	exit 1; \
 	}
 	@python scripts/building/mem_usage.py

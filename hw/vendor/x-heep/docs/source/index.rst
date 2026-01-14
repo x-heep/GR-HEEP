@@ -8,7 +8,7 @@ The cool thing about X-HEEP is that we provide a simple customizable MCU, so CPU
 By doing so, you inherit an IP capable of booting RTOS (such as FreeRTOS) with the whole FW stack, including HAL drivers and SDK, and you can focus on building your special HW or APP supported by the microcontroller.
 
 X-HEEP supports simulation with Verilator, Questasim, etc. Moreover, FW can be built and linked by using CMake either with GCC or with Clang and/or SEGGER Embedded Studio using gcc. It can be implemented on FPGA, and it supports implementation in Silicon, which is its main (but not only) target.
-You are welcome to explore our `X-HEEP repository <https://github.com/esl-epfl/x-heep>`_ or our `X-HEEP paper <https://infoscience.epfl.ch/record/302127>`_ for a deeper description of the platform.
+You are welcome to explore our `X-HEEP repository <https://github.com/x-heep/x-heep>`_ or our `X-HEEP paper <https://infoscience.epfl.ch/record/302127>`_ for a deeper description of the platform.
 
 Architecture
 ^^^^^^^^^^^^
@@ -21,7 +21,7 @@ You can access an editable version of this diagram for your use in presentations
 CPU subsystem domain
 ^^^^^^^^^^^^^^^^^^^^
 
-The CPU subsystem is based on the RISC-V OpenHW Group CPUs as: `CVE2 <https://github.com/openhwgroup/cve2>`_, `CV32E40P <https://github.com/openhwgroup/cv32e40p>`_ and its variant with the CORE-V-X Interface called `CV32E40PX <https://github.com/esl-epfl/cv32e40px>`_, and finally the `CV32E40X <https://github.com/openhwgroup/cv32e40x>`_ CPU, also with the X-IF. All the CPUs are embdded class 32-bit open-source low-power cores. The first three originally designed by ETH Zurich.
+The CPU subsystem is based on the RISC-V OpenHW Group CPUs as: `CVE2 <https://github.com/openhwgroup/cve2>`_, `CV32E40P <https://github.com/openhwgroup/cv32e40p>`_ and its variant with the CORE-V-X Interface called `CV32E40PX <https://github.com/x-heep/cv32e40px>`_, and finally the `CV32E40X <https://github.com/openhwgroup/cv32e40x>`_ CPU, also with the X-IF. All the CPUs are embdded class 32-bit open-source low-power cores. The first three originally designed by ETH Zurich.
 You can selected your core among those ones. We selected these cores as the first two are  mature, verified, implemented in silicon several times, while the latter as extendible with the X-IF. They all features a Harvard architecture with two separate bus interfaces for instructions and data implementing the open bus interface (OBI) protocol. No caches are present in the system. The domain can be easily clock-gated, but it is also thought to be completely switched off when not used for long periods of time.
 
 Memory banks domains

@@ -38,6 +38,7 @@ filesets:
   tb-harness:
     depend:
     - pulp-platform.org:ip:fpu_ss
+    - pulp-platform.org:ip:quadrilatero
     files:
     - tb_util.svh: {is_include_file: true}
     - yosys_spiflash.sv

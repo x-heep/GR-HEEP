@@ -10,6 +10,7 @@ module testharness #(
     parameter bit COREV_PULP                  = 0,
     parameter bit FPU                         = 0,
     parameter bit ZFINX                       = 1,
+    parameter bit QUADRILATERO                = 0,
     parameter bit X_EXT                       = 0,         // eXtension interface in cv32e40x
     parameter bit JTAG_DPI                    = 0,
     parameter bit USE_EXTERNAL_DEVICE_EXAMPLE = 1,
@@ -206,6 +207,7 @@ module testharness #(
     $display("%t: the parameter COREV_PULP is %x", $time, COREV_PULP);
     $display("%t: the parameter FPU is %x", $time, FPU);
     $display("%t: the parameter ZFINX is %x", $time, ZFINX);
+    $display("%t: the parameter QUADRILATERO is %x", $time, QUADRILATERO);
     $display("%t: the parameter X_EXT is %x", $time, X_EXT);
     $display("%t: the parameter JTAG_DPI is %x", $time, JTAG_DPI);
     $display("%t: the parameter EXT_DOMAINS is %x", $time, core_v_mini_mcu_pkg::EXTERNAL_DOMAINS);
@@ -673,7 +675,7 @@ module testharness #(
           .io3(spi_flash_sd_io[3])
       );
 
-      if ((core_v_mini_mcu_pkg::CpuType == cv32e40x || core_v_mini_mcu_pkg::CpuType == cv32e40px || (ZFINX && core_v_mini_mcu_pkg::CpuType == cv32e20)) && X_EXT != 0) begin: gen_fpu_ss_wrapper
+      if ((core_v_mini_mcu_pkg::CpuType == cv32e40x || core_v_mini_mcu_pkg::CpuType == cv32e40px || (ZFINX && core_v_mini_mcu_pkg::CpuType == cv32e20)) && X_EXT != 0 && (QUADRILATERO == 0)) begin: gen_fpu_ss_wrapper
         fpu_ss_wrapper #(
             .PULP_ZFINX(ZFINX),
             .INPUT_BUFFER_DEPTH(1),
@@ -694,6 +696,38 @@ module testharness #(
             .xif_mem_result_if(ext_if),
             .xif_result_if(ext_if)
         );
+      end
+      if ((core_v_mini_mcu_pkg::CpuType == cv32e40x || core_v_mini_mcu_pkg::CpuType == cv32e40px || core_v_mini_mcu_pkg::CpuType == cv32e20) && X_EXT != 0 && (QUADRILATERO != 0)) begin: gen_quadrilatero_wrapper
+        quadrilatero_wrapper #(
+            .MATRIX_FPU(0)
+        ) quadrilatero_wrapper_i (
+            .clk_i,
+            .rst_ni,
+            // eXtension Interface
+            .xif_compressed_if      (ext_if),
+            .xif_issue_if           (ext_if),
+            .xif_commit_if          (ext_if),
+            .xif_mem_if             (ext_if),
+            .xif_mem_result_if      (ext_if),
+            .xif_result_if          (ext_if),
+            // OBI signals 
+            .quadrilatero_ch0_req_o (ext_master_req[testharness_pkg::EXT_MASTER4_IDX]),
+            .quadrilatero_ch0_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER4_IDX]),
+            .quadrilatero_ch1_req_o (ext_master_req[testharness_pkg::EXT_MASTER5_IDX]),
+            .quadrilatero_ch1_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER5_IDX]),
+            .quadrilatero_ch2_req_o (ext_master_req[testharness_pkg::EXT_MASTER6_IDX]),
+            .quadrilatero_ch2_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER6_IDX]),
+            .quadrilatero_ch3_req_o (ext_master_req[testharness_pkg::EXT_MASTER7_IDX]),
+            .quadrilatero_ch3_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER7_IDX])
+        );
+      end else begin : gen_no_quadrilatero_wrapper
+
+        // Tie-off unused Quadrilatero master ports
+        assign ext_master_req[testharness_pkg::EXT_MASTER4_IDX] = '0;
+        assign ext_master_req[testharness_pkg::EXT_MASTER5_IDX] = '0;
+        assign ext_master_req[testharness_pkg::EXT_MASTER6_IDX] = '0;
+        assign ext_master_req[testharness_pkg::EXT_MASTER7_IDX] = '0;
+
       end
 
     end else begin : gen_DONT_USE_EXTERNAL_DEVICE_EXAMPLE

@@ -92,9 +92,9 @@ The commands should be sent in a specific order, and there are hard constraints 
 
 ## Examples and SDK
 
-An SDK is provided in [spi_sdk](https://github.com/esl-epfl/x-heep/tree/main/sw/device/lib/sdk/spi_slave), yet... **this is not an SDK for the SPI slave IP!**. This IP is not controlled by software. The SDK provided is a series of functions to control the SPI slave **from the SPI Host IP**. You can use these functions as in the [example_spi_slave](https://github.com/esl-epfl/x-heep/tree/main/sw/applications/example_spi_slave/) to command the SPI slave from the SPI Host. Note that this example is a nonsense, there is no point in doing this in real life! 
+An SDK is provided in [spi_sdk](https://github.com/x-heep/x-heep/tree/main/sw/device/lib/sdk/spi_slave), yet... **this is not an SDK for the SPI slave IP!**. This IP is not controlled by software. The SDK provided is a series of functions to control the SPI slave **from the SPI Host IP**. You can use these functions as in the [example_spi_slave](https://github.com/x-heep/x-heep/tree/main/sw/applications/example_spi_slave/) to command the SPI slave from the SPI Host. Note that this example is a nonsense, there is no point in doing this in real life! 
 This is interesting only in simulation to test the behavior of both peripherals. 
 
-A more interesting example is available in [demo_spi_master_slave](https://github.com/esl-epfl/x-heep/tree/main/sw/applications/demo_spi_master_slave/), where two FPGAs are used to exchange data from the SPI Host of one to the SPI slave of another. 
+A more interesting example is available in [demo_spi_master_slave](https://github.com/x-heep/x-heep/tree/main/sw/applications/demo_spi_master_slave/), where two FPGAs are used to exchange data from the SPI Host of one to the SPI slave of another. 
 If you want to read from X-HEEP's memory using the SPI slave, we recommend you follow this demo. 
 
