@@ -22,7 +22,7 @@ module gr_heep_bus #(
   input addr_map_rule_pkg::addr_map_rule_t [EXT_XBAR_NSLAVE-1:0] addr_map_i,
 
   // Default external slave index
-  input logic [IdxWidt-1:0] default_idx_i,
+  input logic [IdxWidth-1:0] default_idx_i,
 
   // X-HEEP master ports
   input  obi_pkg::obi_req_t  heep_core_instr_req_i,

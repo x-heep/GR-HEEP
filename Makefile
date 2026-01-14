@@ -4,6 +4,10 @@ X_HEEP_DIR 		:= $(ROOT_DIR)/hw/vendor/x-heep
 BUILD_DIR 		:= build
 SW_BUILD_DIR	:= sw/build
 
+FUSESOC_BUILD_DIR = $(shell find $(BUILD_DIR) -maxdepth 1 -type d -name 'x-heep.org_systems_gr-heep_*' 2>/dev/null | sort -V | head -n 1)
+VERILATOR_DIR     = $(FUSESOC_BUILD_DIR)/sim-verilator
+QUESTASIM_DIR     = $(FUSESOC_BUILD_DIR)/sim-modelsim
+
 # FUSESOC and Python values (default)
 ifndef CONDA_DEFAULT_ENV
 $(info USING VENV)
@@ -97,6 +101,18 @@ verilator-run-app:
 	$(FUSESOC) --cores-root . run --no-export --target=sim --tool=verilator $(FUSESOC_FLAGS) \
 		--run x-heep.org:systems:gr-heep $(FUSESOC_PARAM) \
 		--run_options="+firmware=../../../sw/build/main.hex $(SIM_ARGS)"
+
+
+## Questasim simulation
+.PHONY: questasim-build
+questasim-build:
+	$(FUSESOC) --cores-root . run --no-export --target=sim --tool=modelsim $(FUSESOC_FLAGS) \
+		--build x-heep.org:systems:gr-heep $(FUSESOC_PARAM) 2>&1 | tee buildsim.log
+
+## Questasim simulation with HDL optimized compilation
+.PHONY: questasim-build-opt
+questasim-build-opt: questasim-build
+	$(MAKE) -C $(QUESTASIM_DIR) opt
 
 ## @section Utilities
 

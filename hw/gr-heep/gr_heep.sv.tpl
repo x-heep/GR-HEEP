@@ -244,7 +244,6 @@ module gr_heep (
   assign heep_dma_read_rsp = '0;
   assign heep_dma_write_rsp = '0;
   assign heep_dma_addr_rsp = '0;
-  assign hw_fifo_rsp = '0;
   assign heep_peripheral_rsp = '0;
   assign ext_ao_peripheral_req = '0;
 
