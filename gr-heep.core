@@ -4,7 +4,7 @@ CAPI=2:
 # Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 # SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
-name: x-heep.org:systems:gr-heep
+name: x-heep:systems:gr-heep
 description: GR-HEEP extended SoC (from X-HEEP).
 
 filesets:
@@ -90,12 +90,6 @@ parameters:
     paramtype: vlogparam
     description: |
       Enables RV32Zfinx RISC-V extensions. Admitted values: 1|0.
-    default: 0
-  QUADRILATERO:
-    datatype: int
-    paramtype: vlogparam
-    description: |
-      Enables Matrix custom RISC-V extensions. Admitted values: 1|0.
     default: 0
   JTAG_DPI:
     datatype: int
@@ -217,7 +211,6 @@ targets:
     - COREV_PULP
     - FPU
     - ZFINX
-    - QUADRILATERO
     - JTAG_DPI
     - X_EXT
     - USE_EXTERNAL_DEVICE_EXAMPLE

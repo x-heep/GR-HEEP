@@ -4,7 +4,7 @@ X_HEEP_DIR 		:= $(ROOT_DIR)/hw/vendor/x-heep
 BUILD_DIR 		:= build
 SW_BUILD_DIR	:= sw/build
 
-FUSESOC_BUILD_DIR = $(shell find $(BUILD_DIR) -maxdepth 1 -type d -name 'x-heep.org_systems_gr-heep_*' 2>/dev/null | sort -V | head -n 1)
+FUSESOC_BUILD_DIR = $(shell find $(BUILD_DIR) -maxdepth 1 -type d -name 'x-heep_systems_gr-heep_*' 2>/dev/null | sort -V | head -n 1)
 VERILATOR_DIR     = $(FUSESOC_BUILD_DIR)/sim-verilator
 QUESTASIM_DIR     = $(FUSESOC_BUILD_DIR)/sim-modelsim
 
@@ -93,21 +93,29 @@ $(GR_HEEP_GEN_LOCK): $(GR_HEEP_GEN_CFG) $(MCU_GEN_LOCK)
 .PHONY: verilator-build
 verilator-build:
 	$(FUSESOC) --cores-root . run --no-export --target=sim --tool=verilator $(FUSESOC_FLAGS) \
-		--build x-heep.org:systems:gr-heep $(FUSESOC_PARAM) 2>&1 | tee buildsim.log
+		--build x-heep:systems:gr-heep $(FUSESOC_PARAM) 2>&1 | tee buildsim.log
 
+## First builds the app and then uses Verilator to simulate the HW model and run the FW
 .PHONY: verilator-run-app
 verilator-run-app:
 	$(MAKE) -C $(X_HEEP_DIR) app
 	$(FUSESOC) --cores-root . run --no-export --target=sim --tool=verilator $(FUSESOC_FLAGS) \
-		--run x-heep.org:systems:gr-heep $(FUSESOC_PARAM) \
+		--run x-heep:systems:gr-heep $(FUSESOC_PARAM) \
 		--run_options="+firmware=../../../sw/build/main.hex $(SIM_ARGS)"
 
+## Launches the RTL simulation with the compiled firmware (`app` target) using
+## the C++ Verilator model previously built (`verilator-build` target).
+.PHONY: verilator-run
+verilator-run:
+	$(FUSESOC) --cores-root . run --no-export --target=sim --tool=verilator $(FUSESOC_FLAGS) \
+		--run x-heep:systems:gr-heep $(FUSESOC_PARAM) \
+		--run_options="+firmware=../../../sw/build/main.hex $(SIM_ARGS)"
 
 ## Questasim simulation
 .PHONY: questasim-build
 questasim-build:
 	$(FUSESOC) --cores-root . run --no-export --target=sim --tool=modelsim $(FUSESOC_FLAGS) \
-		--build x-heep.org:systems:gr-heep $(FUSESOC_PARAM) 2>&1 | tee buildsim.log
+		--build x-heep:systems:gr-heep $(FUSESOC_PARAM) 2>&1 | tee buildsim.log
 
 ## Questasim simulation with HDL optimized compilation
 .PHONY: questasim-build-opt
