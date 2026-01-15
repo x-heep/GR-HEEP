@@ -137,6 +137,16 @@ questasim-run-app-gui:
 	@echo -e "\033[1m### DONE! Simulation finished. UART output:\033[0m"
 	@cat $(QUESTASIM_DIR)/uart0.log
 
+## @section Vivado
+
+## Builds (synthesis and implementation) the bitstream for the FPGA version using Vivado
+## @param FPGA_BOARD=pynq-z2,nexys-a7-100t,genesys2,aup-zu3,zcu102,zcu104
+## @param FUSESOC_FLAGS=--flag=<flagname>
+vivado-fpga:
+	$(FUSESOC) --cores-root . run --no-export --target=$(FPGA_BOARD) $(FUSESOC_FLAGS) \
+		--build x-heep:systems:gr-heep $(FUSESOC_PARAM) 2>&1 | tee buildvivado.log
+
+
 ## @section Utilities
 
 ## Update vendor submodules
