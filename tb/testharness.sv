@@ -159,7 +159,7 @@ module testharness #(
   assign gr_heep_i.peripheral_subsystem_powergate_switch_ack_n = peripheral_subsystem_powergate_switch_ack_n[SWITCH_ACK_LATENCY];
 
   uartdpi #(
-      .BAUD('d256000),
+      .BAUD(CLK_FREQUENCY * 1000 / 20),  // close to maximum baud rate (/16)
       .FREQ(CLK_FREQUENCY * 1000),  //Hz
       .NAME("uart0")
   ) i_uart0 (
