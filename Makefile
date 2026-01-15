@@ -122,6 +122,21 @@ questasim-build:
 questasim-build-opt: questasim-build
 	$(MAKE) -C $(QUESTASIM_DIR) opt
 
+## First builds the app and then uses Questasim to simulate the HW model and run the FW
+.PHONY: questasim-run-app
+questasim-run-app:
+	$(MAKE) -C $(X_HEEP_DIR) app
+	$(MAKE) -C $(QUESTASIM_DIR) run RUN_OPT=1 PLUSARGS="c firmware=../../../sw/build/main.hex"
+	@echo -e "\033[1m### DONE! Simulation finished. UART output:\033[0m"
+	@cat $(QUESTASIM_DIR)/uart0.log
+
+.PHONY: questasim-run-app-gui
+questasim-run-app-gui:
+	$(MAKE) -C $(X_HEEP_DIR) app
+	$(MAKE) -C $(QUESTASIM_DIR) run-gui RUN_OPT=1 PLUSARGS="c firmware=../../../sw/build/main.hex"
+	@echo -e "\033[1m### DONE! Simulation finished. UART output:\033[0m"
+	@cat $(QUESTASIM_DIR)/uart0.log
+
 ## @section Utilities
 
 ## Update vendor submodules

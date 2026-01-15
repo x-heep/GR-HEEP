@@ -70,31 +70,9 @@ module testharness #(
   wire [3:0] spi2_sd;
   wire exit_value;
 
-  // External subsystems
-//   logic [EXT_DOMAINS_RND-1:0] external_subsystem_powergate_switch_n;
-//   logic [EXT_DOMAINS_RND-1:0] external_subsystem_powergate_switch_ack_n;
-//   logic [EXT_DOMAINS_RND-1:0] external_subsystem_powergate_iso_n;
-//   logic [EXT_DOMAINS_RND-1:0] external_subsystem_rst_n;
-//   logic [EXT_DOMAINS_RND-1:0] external_ram_banks_set_retentive_n;
-//   logic [EXT_DOMAINS_RND-1:0] external_subsystem_clkgate_en_n;
-
   logic [EXT_DOMAINS_RND-1:0] external_subsystem_powergate_switch_ack_n[SWITCH_ACK_LATENCY:0];
   logic [EXT_DOMAINS_RND-1:0] cpu_subsystem_powergate_switch_ack_n[SWITCH_ACK_LATENCY:0];
   logic [EXT_DOMAINS_RND-1:0] peripheral_subsystem_powergate_switch_ack_n[SWITCH_ACK_LATENCY:0];
-
-  //log parameters
-  initial begin
-    $display("%t: the parameter COREV_PULP is %x", $time, COREV_PULP);
-    $display("%t: the parameter FPU is %x", $time, FPU);
-    $display("%t: the parameter ZFINX is %x", $time, ZFINX);
-    $display("%t: the parameter X_EXT is %x", $time, X_EXT);
-    $display("%t: the parameter ZFINX is %x", $time, ZFINX);
-    $display("%t: the parameter JTAG_DPI is %x", $time, JTAG_DPI);
-    $display("%t: the parameter EXT_DOMAINS is %x", $time, core_v_mini_mcu_pkg::EXTERNAL_DOMAINS);
-    $display("%t: the parameter USE_EXTERNAL_DEVICE_EXAMPLE is %x", $time,
-             USE_EXTERNAL_DEVICE_EXAMPLE);
-    $display("%t: the parameter CLK_FREQUENCY is %d KHz", $time, CLK_FREQUENCY);
-  end
 
   gr_heep gr_heep_i (
       .clk_i,
