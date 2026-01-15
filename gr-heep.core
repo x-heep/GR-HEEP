@@ -51,6 +51,11 @@ filesets:
   uartdpi:
     depend:
     - lowrisc:dv_dpi:uartdpi
+
+  systemverilog_only_uart:
+    files:
+    - hw/vendor/x-heep/hw/vendor/lowrisc_opentitan/hw/dv/dpi/uartdpi/uartdpi.sv
+    file_type: systemVerilogSource
   
   systemverilog_only_simjtag:
     depend:
@@ -191,10 +196,12 @@ targets:
     - tool_verilator? (uartdpi)
     - tool_verilator? (tb-verilator)
     - tool_verilator? (systemverilog_only_simjtag)
+    - tool_modelsim? (systemverilog_only_uart)
+    - tool_modelsim? (tb-sv)
+    - tool_modelsim? (systemverilog_only_simjtag)
     - tool_modelsim? (pre_build_remote_bitbang)
     - tool_modelsim? (pre_build_uartdpi)
     - tool_modelsim? (pre_patch_modelsim_Makefile)
-    - tool_modelsim? (tb-sv)
     toplevel:
     - tool_verilator? (testharness)
     - tool_modelsim? (tb_top)
