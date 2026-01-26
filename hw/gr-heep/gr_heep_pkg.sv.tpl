@@ -20,12 +20,6 @@ package gr_heep_pkg;
   // CORE-V-MINI-MCU
   // ---------------
 
-  // CPU
-  localparam int unsigned CpuCorevPulp = 32'd${gr_heep["cpu_corev_pulp"]};
-  localparam int unsigned CpuCorevXif = 32'd${gr_heep["cpu_corev_xif"]};
-  localparam int unsigned CpuFpu = 32'd${gr_heep["cpu_fpu"]};
-  localparam int unsigned CpuRiscvZfinx = 32'd${gr_heep["cpu_riscv_zfinx"]};
-
   // SPC
   localparam int unsigned AoSPCNum = 32'd${gr_heep["ao_spc_num"]};
 

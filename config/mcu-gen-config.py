@@ -6,7 +6,6 @@
 # Description: X-HEEP and GR-HEEP configuration for mcu-gen.
 
 import re
-import os
 from x_heep_gen.xheep import XHeep
 from x_heep_gen.cpu.cpu import CPU
 from x_heep_gen.bus_type import BusType
@@ -41,10 +40,10 @@ from x_heep_gen.peripherals.user_peripherals_domain import UserPeripheralDomain
 
 
 def config():
-    # Parallel bus to provide bandwidth to the eGPU
+    # Parallel bus
     system = XHeep(BusType.NtoM)
 
-    # Set cv32e40p CPU
+    # Set cv32e40px CPU
     system.set_cpu(CPU("cv32e40px"))
 
     # Memory subsystem
@@ -109,20 +108,13 @@ def config():
     system.add_peripheral_domain(base_peripheral_domain)
     system.add_peripheral_domain(user_peripheral_domain)
 
-    # Add D-HEEP Blue extensions
+    # Add GR-HEEP extension
     system.add_extension("gr-heep", gr_heep_config())
 
     return system
 
 
 def gr_heep_config():
-
-    cpu_features = {
-        "corev_pulp": 0,
-        "corev_xif": 0,
-        "fpu": 0,
-        "riscv_zfinx": 0,
-    }
 
     ext_xbar_nmasters = 0
 
@@ -196,10 +188,6 @@ def gr_heep_config():
             idx += 1
 
     kwargs = {
-        "cpu_corev_pulp": int(cpu_features["corev_pulp"]),
-        "cpu_corev_xif": int(cpu_features["corev_xif"]),
-        "cpu_fpu": int(cpu_features["fpu"]),
-        "cpu_riscv_zfinx": int(cpu_features["riscv_zfinx"]),
         "xbar_nmasters": ext_xbar_nmasters,
         "xbar_nslaves": len(ext_xbar_slaves),
         "periph_nslaves": len(ext_periph),
