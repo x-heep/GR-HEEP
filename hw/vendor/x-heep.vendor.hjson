@@ -7,8 +7,8 @@
   target_dir: "x-heep",
 
   upstream: {
-    url: "https://github.com/davidmallasen/x-heep.git",
-    rev: "974e95f9018584a767a0a97c8556b895dc43a0b7",
+    url: "https://github.com/x-heep/x-heep.git",
+    rev: "01969ed2d51e3d6d509d820ba366628a510af3d6",
   },
 
   patch_dir: "patches/x-heep",
