@@ -7,6 +7,10 @@
 // Date: 09/11/2024
 // Description: Address map for gr_heep external peripherals.
 
+<%
+    gr_heep = xheep.get_extension("gr-heep")
+%>
+
 #ifndef GR_HEEP_H
 #define GR_HEEP_H
 
@@ -17,16 +21,16 @@ extern "C" {
 #include "core_v_mini_mcu.h"
 
 // Number of masters and slaves on the external crossbar
-#define EXT_XBAR_NMASTER ${xbar_nmasters}
-#define EXT_XBAR_NSLAVE ${xbar_nslaves}
+#define EXT_XBAR_NMASTER ${gr_heep["xbar_nmasters"]}
+#define EXT_XBAR_NSLAVE ${gr_heep["xbar_nslaves"]}
 
 
 // Memory map
 // ----------
 
-% if (xbar_nslaves > 0):
+% if (gr_heep["xbar_nslaves"] > 0):
 
-% for a_slave in slaves:
+% for a_slave in gr_heep["slaves"]:
 
 // ${a_slave['SCREAMING_NAME']}
 #define ${a_slave['SCREAMING_NAME']}_START_ADDRESS EXT_SLAVE_START_ADDRESS + 0x${a_slave['offset']}
@@ -39,9 +43,9 @@ extern "C" {
 // Peripheral map
 // ----------
 
-% if (periph_nslaves > 0):
+% if (gr_heep["periph_nslaves"] > 0):
 
-% for a_slave in peripherals:
+% for a_slave in gr_heep["peripherals"]:
 
 // ${a_slave['SCREAMING_NAME']}
 #define ${a_slave['SCREAMING_NAME']}_PERIPH_START_ADDRESS EXT_PERIPHERAL_START_ADDRESS + 0x${a_slave['offset']}

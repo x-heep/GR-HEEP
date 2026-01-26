@@ -7,6 +7,10 @@
 // Date: 16/10/2024
 // Description: GR-HEEP pkg
 
+<%
+    gr_heep = xheep.get_extension("gr-heep")
+%>
+
 package gr_heep_pkg;
 
   import addr_map_rule_pkg::*;
@@ -17,13 +21,13 @@ package gr_heep_pkg;
   // ---------------
 
   // CPU
-  localparam int unsigned CpuCorevPulp = 32'd${cpu_corev_pulp};
-  localparam int unsigned CpuCorevXif = 32'd${cpu_corev_xif};
-  localparam int unsigned CpuFpu = 32'd${cpu_fpu};
-  localparam int unsigned CpuRiscvZfinx = 32'd${cpu_riscv_zfinx};
+  localparam int unsigned CpuCorevPulp = 32'd${gr_heep["cpu_corev_pulp"]};
+  localparam int unsigned CpuCorevXif = 32'd${gr_heep["cpu_corev_xif"]};
+  localparam int unsigned CpuFpu = 32'd${gr_heep["cpu_fpu"]};
+  localparam int unsigned CpuRiscvZfinx = 32'd${gr_heep["cpu_riscv_zfinx"]};
 
   // SPC
-  localparam int unsigned AoSPCNum = 32'd${ao_spc_num};
+  localparam int unsigned AoSPCNum = 32'd${gr_heep["ao_spc_num"]};
 
   localparam int unsigned DMAMasterPortsNum = DMA_NUM_MASTER_PORTS;
   localparam int unsigned DMACHNum = DMA_CH_NUM;
@@ -39,16 +43,16 @@ package gr_heep_pkg;
   // ----------------
 
   // Number of masters and slaves
-  localparam int unsigned ExtXbarNMaster = 32'd${xbar_nmasters};
-  localparam int unsigned ExtXbarNSlave = 32'd${xbar_nslaves};
+  localparam int unsigned ExtXbarNMaster = 32'd${gr_heep["xbar_nmasters"]};
+  localparam int unsigned ExtXbarNSlave = 32'd${gr_heep["xbar_nslaves"]};
   localparam int unsigned ExtXbarNMasterRnd = ExtXbarNMaster > 0 ? ExtXbarNMaster : 32'd1;
   localparam int unsigned ExtXbarNSlaveRnd = ExtXbarNSlave > 0 ? ExtXbarNSlave : 32'd1; 
   localparam int unsigned LogExtXbarNMaster = ExtXbarNMaster > 32'd1 ? $clog2(ExtXbarNMaster) : 32'd1;
   localparam int unsigned LogExtXbarNSlave = ExtXbarNSlave > 32'd1 ? $clog2(ExtXbarNSlave) : 32'd1;
 
-% if (xbar_nslaves > 0):
+% if (gr_heep["xbar_nslaves"] > 0):
 
-% for a_slave in slaves:
+% for a_slave in gr_heep["slaves"]:
 
     // Memory map
     // ----------
@@ -61,8 +65,8 @@ package gr_heep_pkg;
 
     // External slaves address map
     localparam addr_map_rule_t [ExtXbarNSlave-1:0] ExtSlaveAddrRules = '{
-% for slave_idx, a_slave in enumerate(slaves):
-% if (slave_idx < len(slaves)-1):
+% for slave_idx, a_slave in enumerate(gr_heep["slaves"]):
+% if (slave_idx < len(gr_heep["slaves"])-1):
       '{idx: ${a_slave['name']}Idx, start_addr: ${a_slave['name']}StartAddr, end_addr: ${a_slave['name']}EndAddr},
 % else:
       '{idx: ${a_slave['name']}Idx, start_addr: ${a_slave['name']}StartAddr, end_addr: ${a_slave['name']}EndAddr}
@@ -79,13 +83,13 @@ package gr_heep_pkg;
   // --------------------
 
   // Number of external peripherals
-  localparam int unsigned ExtPeriphNSlave = 32'd${periph_nslaves};
+  localparam int unsigned ExtPeriphNSlave = 32'd${gr_heep["periph_nslaves"]};
   localparam int unsigned LogExtPeriphNSlave = (ExtPeriphNSlave > 32'd1) ? $clog2(ExtPeriphNSlave) : 32'd1;
   localparam int unsigned ExtPeriphNSlaveRnd = (ExtPeriphNSlave > 32'd1) ? ExtPeriphNSlave : 32'd1;
 
-% if (periph_nslaves > 0):
+% if (gr_heep["periph_nslaves"] > 0):
 
-% for a_slave in peripherals:
+% for a_slave in gr_heep["peripherals"]:
 
     // Memory map
     // ----------
@@ -98,8 +102,8 @@ package gr_heep_pkg;
     
         // External peripherals address map
         localparam addr_map_rule_t [ExtPeriphNSlave-1:0] ExtPeriphAddrRules = '{
-% for slave_idx, a_slave in enumerate(peripherals):
-% if (slave_idx < len(peripherals)-1):
+% for slave_idx, a_slave in enumerate(gr_heep["peripherals"]):
+% if (slave_idx < len(gr_heep["peripherals"])-1):
           '{idx: ${a_slave['name']}PeriphIdx, start_addr: ${a_slave['name']}PeriphStartAddr, end_addr: ${a_slave['name']}PeriphEndAddr},
 % else:
             '{idx: ${a_slave['name']}PeriphIdx, start_addr: ${a_slave['name']}PeriphStartAddr, end_addr: ${a_slave['name']}PeriphEndAddr}
@@ -111,7 +115,7 @@ package gr_heep_pkg;
 
 % endif
 
-  localparam int unsigned ExtInterrupts = 32'd${ext_interrupts};
+  localparam int unsigned ExtInterrupts = 32'd${gr_heep["ext_interrupts"]};
 
 endpackage
 

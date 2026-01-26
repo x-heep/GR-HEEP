@@ -144,11 +144,6 @@ module gr_heep (
   // CORE-V-MINI-MCU (microcontroller)
   // ---------------------------------
   core_v_mini_mcu #(
-    .COREV_PULP      (CpuCorevPulp),
-    .FPU             (CpuFpu),
-    .ZFINX           (CpuRiscvZfinx),
-    .EXT_XBAR_NMASTER(ExtXbarNMaster),
-    .X_EXT           (CpuCorevXif),
     .AO_SPC_NUM      (AoSPCNum),
     .EXT_HARTS       (1)
   ) core_v_mini_mcu_i (

@@ -1,0 +1,243 @@
+# Copyright 2026 EPFL
+# Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# Author: David Mallasén
+# Description: X-HEEP and GR-HEEP configuration for mcu-gen.
+
+import re
+import os
+from x_heep_gen.xheep import XHeep
+from x_heep_gen.cpu.cpu import CPU
+from x_heep_gen.bus_type import BusType
+from x_heep_gen.memory_ss.memory_ss import MemorySS
+from x_heep_gen.memory_ss.linker_section import LinkerSection
+from x_heep_gen.peripherals.base_peripherals import (
+    SOC_ctrl,
+    Bootrom,
+    SPI_flash,
+    SPI_memio,
+    DMA,
+    Power_manager,
+    RV_timer_ao,
+    Fast_intr_ctrl,
+    Ext_peripheral,
+    Pad_control,
+    GPIO_ao,
+)
+from x_heep_gen.peripherals.user_peripherals import (
+    RV_plic,
+    SPI_host,
+    GPIO,
+    I2C,
+    RV_timer,
+    SPI2,
+    PDM2PCM,
+    I2S,
+    UART,
+)
+from x_heep_gen.peripherals.base_peripherals_domain import BasePeripheralDomain
+from x_heep_gen.peripherals.user_peripherals_domain import UserPeripheralDomain
+
+
+def config():
+    # Parallel bus to provide bandwidth to the eGPU
+    system = XHeep(BusType.NtoM)
+
+    # Set cv32e40p CPU
+    system.set_cpu(CPU("cv32e40px"))
+
+    # Memory subsystem
+    # - 2 x 32kiB firmware and data
+    # - 2 x 16kiB interleaved banks
+    memory_ss = MemorySS()
+    memory_ss.add_ram_banks([32] * 2)
+    memory_ss.add_ram_banks_il(4, 16, "data_interleaved")
+    # Linker script sections
+    memory_ss.add_linker_section(LinkerSection.by_size("code", 0, 0x0000E800))
+    memory_ss.add_linker_section(LinkerSection("data", 0x0000E800, None))
+    system.set_memory_ss(memory_ss)
+
+    # Peripheral domains initialization
+    base_peripheral_domain = BasePeripheralDomain()
+    user_peripheral_domain = UserPeripheralDomain()
+
+    # Base peripherals. All base peripherals must be added. They can be either added with
+    # "add_peripheral" or "add_missing_peripherals" (adds all base peripherals).
+    base_peripheral_domain.add_peripheral(SOC_ctrl(0x00000000))
+    base_peripheral_domain.add_peripheral(Bootrom(0x00010000))
+    base_peripheral_domain.add_peripheral(
+        SPI_flash(0x00020000, 0x00008000)
+    )
+    base_peripheral_domain.add_peripheral(
+        SPI_memio(0x00028000, 0x00008000)
+    )
+    base_peripheral_domain.add_peripheral(
+        DMA(
+            address=0x00030000,
+            length=0x00010000,
+            ch_length=0x100,
+            num_channels=4,
+            num_master_ports=2,
+            num_channels_per_master_port=2,
+            fifo_depth=4,
+            addr_mode="yes",
+            subaddr_mode="yes",
+            hw_fifo_mode="yes",
+            zero_padding="yes",
+        )
+    )
+    base_peripheral_domain.add_peripheral(Power_manager(0x00040000))
+    base_peripheral_domain.add_peripheral(RV_timer_ao(0x00050000))
+    base_peripheral_domain.add_peripheral(Fast_intr_ctrl(0x00060000))
+    base_peripheral_domain.add_peripheral(Ext_peripheral(0x00070000))
+    base_peripheral_domain.add_peripheral(Pad_control(0x00080000))
+    base_peripheral_domain.add_peripheral(GPIO_ao(0x00090000))
+
+    # User peripherals. All are optional. They must be added with "add_peripheral".
+    user_peripheral_domain.add_peripheral(RV_plic(0x00000000))
+    user_peripheral_domain.add_peripheral(SPI_host(0x00010000))
+    user_peripheral_domain.add_peripheral(GPIO(0x00020000))
+    user_peripheral_domain.add_peripheral(I2C(0x00030000))
+    user_peripheral_domain.add_peripheral(RV_timer(0x00040000))
+    user_peripheral_domain.add_peripheral(SPI2(0x00050000))
+    # user_peripheral_domain.add_peripheral(PDM2PCM(0x00060000))
+    user_peripheral_domain.add_peripheral(I2S(0x00070000))
+    user_peripheral_domain.add_peripheral(UART(0x00080000))
+
+    # Add the peripheral domains to the system
+    system.add_peripheral_domain(base_peripheral_domain)
+    system.add_peripheral_domain(user_peripheral_domain)
+
+    # Add D-HEEP Blue extensions
+    system.add_extension("gr-heep", gr_heep_config())
+
+    return system
+
+
+def gr_heep_config():
+
+    cpu_features = {
+        "corev_pulp": 0,
+        "corev_xif": 0,
+        "fpu": 0,
+        "riscv_zfinx": 0,
+    }
+
+    ext_xbar_nmasters = 0
+
+    # External slaves memory map
+    ext_xbar_slaves = {
+        #     "slave_0": {
+        #         "offset":    "0x00000000",
+        #         "length":    "0x00010000",
+        #     },
+        #     "slave_1": {
+        #         "offset":    "0x00010000",
+        #         "length":    "0x00010000",
+        #     },
+    }
+
+    # External peripherals
+    ext_periph = {
+        #     "peripheral_0": {
+        #         "offset": 0x00000000,
+        #         "length": 0x00001000,
+        #     },
+        #     "peripheral_1": {
+        #         "offset": 0x00001000,
+        #         "length": 0x00001000,
+        #     },
+        #     "peripheral_2": {
+        #         "offset": 0x00003000,
+        #         "length": 0x00001000,
+        #     },
+    }
+
+    ao_spc_num = 1
+
+    external_interrupts = 0
+
+    # vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    # Do not modify below this line unless you know what you are doing
+    # vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+
+    slaves = []
+    if len(ext_xbar_slaves) > 0:
+        idx = 0
+        for a_slave, slave_config in ext_xbar_slaves.items():
+            slaves.append(
+                {
+                    "name": CamelCase(a_slave),
+                    "SCREAMING_NAME": SCREAMING_SNAKE_CASE(a_slave),
+                    "idx": idx,
+                    "offset": slave_config["offset"],
+                    "size": slave_config["length"],
+                    "end_address": slave_config["offset"] + slave_config["length"],
+                }
+            )
+            idx += 1
+
+    peripherals = []
+    if len(ext_periph) > 0:
+        idx = 0
+        for a_peripheral, peripheral_config in ext_periph.items():
+            peripherals.append(
+                {
+                    "name": CamelCase(a_peripheral),
+                    "SCREAMING_NAME": SCREAMING_SNAKE_CASE(a_peripheral),
+                    "idx": idx,
+                    "offset": peripheral_config["offset"],
+                    "size": peripheral_config["length"],
+                    "end_address": peripheral_config["offset"]
+                    + peripheral_config["length"],
+                }
+            )
+            idx += 1
+
+    kwargs = {
+        "cpu_corev_pulp": int(cpu_features["corev_pulp"]),
+        "cpu_corev_xif": int(cpu_features["corev_xif"]),
+        "cpu_fpu": int(cpu_features["fpu"]),
+        "cpu_riscv_zfinx": int(cpu_features["riscv_zfinx"]),
+        "xbar_nmasters": ext_xbar_nmasters,
+        "xbar_nslaves": len(ext_xbar_slaves),
+        "periph_nslaves": len(ext_periph),
+        "ao_spc_num": ao_spc_num,
+        "slaves": slaves,
+        "peripherals": peripherals,
+        "ext_interrupts": external_interrupts,
+    }
+
+    return kwargs
+
+
+def CamelCase(input_string):
+    # Split the input string by non-alphanumeric characters (e.g., space, hyphen, underscore)
+    words = re.split(r"[^a-zA-Z0-9]+", input_string)
+
+    # Capitalize the first letter of each word except the first word
+    # Join all words together to form a CamelCase string
+    camel_case = words[0].capitalize() + "".join(
+        word.capitalize() for word in words[1:]
+    )
+
+    return camel_case
+
+
+def SCREAMING_SNAKE_CASE(input_string):
+    # Replace non-alphanumeric characters with underscores and handle camelCase and PascalCase
+    words = re.sub(
+        r"([a-z])([A-Z])", r"\1_\2", input_string
+    )  # Insert underscores between camelCase words
+    words = re.sub(
+        r"[^a-zA-Z0-9]+", "_", words
+    )  # Replace non-alphanumerics with underscores
+
+    # Convert the entire string to uppercase
+    screaming_snake_case = words.upper()
+
+    # Remove any leading or trailing underscores
+    screaming_snake_case = screaming_snake_case.strip("_")
+
+    return screaming_snake_case

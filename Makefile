@@ -1,3 +1,10 @@
+# Copyright 2026 EPFL, Politecnico di Torino, and Universidad Politecnica de Madrid.
+# Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# Author: Michele Caon, Luigi Giuffrida, Daniel Vázquez, David Mallasén
+# Description: Top-level makefile for GR-HEEP
+
 # Global configuration
 ROOT_DIR		:= $(realpath .)
 X_HEEP_DIR 		:= $(ROOT_DIR)/hw/vendor/x-heep
@@ -19,22 +26,31 @@ FUSESOC := $(shell which fusesoc)
 PYTHON  := $(shell which python)
 endif
 
+# Implementation specific variables
+# TARGET options are 'asic' (default), 'pynq-z2', and 'zcu104'
+TARGET ?= asic
+
+# X-HEEP mcu-gen configuration
+PYTHON_X_HEEP_CFG   ?= $(ROOT_DIR)/config/mcu-gen-config.py
+X_HEEP_CFG  		?= $(ROOT_DIR)/config/mcu-gen-config.hjson
+PADS_CFG_ASIC		?= $(ROOT_DIR)/config/gr-heep-pads.hjson
+PADS_CFG_FPGA		?= $(ROOT_DIR)/config/gr-heep-pads-fpga.hjson
+XHEEP_CONFIG_CACHE  := $(BUILD_DIR)/xheep_config_cache.pickle
+EXTERNAL_DOMAINS	:= 0 # TO BE UPDATED according to the number of external domains. FIXME: move to mcu-gen
+
+ifeq ($(TARGET),asic)
+	PADS_CFG := $(PADS_CFG_ASIC)
+else ifeq ($(filter $(TARGET),pynq-z2 zcu104),$(TARGET))
+	PADS_CFG := $(PADS_CFG_FPGA)
+else
+	$(error ### ERROR: Unsupported target implementation: $(TARGET))
+endif
+
 # Verilog format and linting variables
 RTL_FILES := $(wildcard hw/gr-heep/*.sv)
-
-# X-HEEP configuration
-X_HEEP_CFG  		?= $(ROOT_DIR)/config/mcu-gen.hjson
-PADS_CFG			?= $(ROOT_DIR)/config/gr-heep-pads.hjson
-EXTERNAL_DOMAINS	:= 0 # TO BE UPDATED according to the number of external domains
-GR_HEEP_CACHE 		:= $(BUILD_DIR)/gr-heep_cache.pickle
-XHEEP_CONFIG_CACHE 	:= $(ROOT_DIR)/$(GR_HEEP_CACHE)
-MCU_GEN_OPTS		:= --cached_path $(XHEEP_CONFIG_CACHE) --cached
-MCU_GEN_LOCK		:= $(BUILD_DIR)/.mcu-gen.lock
-
-# GR-HEEP configuration
-GR_HEEP_GEN_CFG	 := config/gr-heep-cfg.hjson
-GR_HEEP_GEN_OPTS := --cfg $(GR_HEEP_GEN_CFG)
-GR_HEEP_GEN_LOCK := $(BUILD_DIR)/.gr-heep-gen.lock
+# GR-HEEP templated files
+# Collects all .tpl files in the project excluding certain directories
+GR_HEEP_GEN_TPLS := $(shell find . \( -path './hw/vendor' -o -path './hw/fpga' -o -path './sw/device' -o -path './sw/linker' \) -prune -o -name '*.tpl' -print)
 
 # Software
 PROJECT := hello_world
@@ -51,43 +67,27 @@ verible:
 		verible-verilog-lint $$file --lint_fatal=false --parse_fatal=false; \
 	done
 
+## @section RTL & SW generation
+
+## Generate X-HEEP MCU files
 .PHONY: mcu-gen
-mcu-gen: $(MCU_GEN_LOCK)
-$(MCU_GEN_LOCK): $(X_HEEP_CFG) $(PADS_CFG)
-	@echo "### Building X-HEEP MCU..."
-	$(MAKE) -C $(X_HEEP_DIR) mcu-gen
-	touch $@
-	$(RM) $(GR_HEEP_GEN_LOCK)
-	@echo "### DONE! X-HEEP MCU generated successfully"
+mcu-gen: $(X_HEEP_CFG) $(PYTHON_X_HEEP_CFG) $(PADS_CFG) | $(BUILD_DIR)/
+	$(MAKE) -f $(XHEEP_MAKE) mcu-gen \
+		XHEEP_CONFIG_CACHE=$(HEEP_REL_PATH)/$(XHEEP_CONFIG_CACHE) \
+		X_HEEP_CFG=$(X_HEEP_CFG) \
+		PYTHON_X_HEEP_CFG=$(PYTHON_X_HEEP_CFG) \
+		PADS_CFG=$(PADS_CFG) \
+		EXTERNAL_DOMAINS=$(EXTERNAL_DOMAINS)
 
-.PHONY: gr-heep-gen-force
-gr-heep-gen-force:
-	$(RM) $(MCU_GEN_LOCK) $(GR_HEEP_GEN_LOCK)
-	$(MAKE) gr-heep-gen
-
+## Generate GR-HEEP files
 .PHONY: gr-heep-gen
-gr-heep-gen: $(GR_HEEP_GEN_LOCK)
-$(GR_HEEP_GEN_LOCK): $(GR_HEEP_GEN_CFG) $(MCU_GEN_LOCK)
-	@echo "### Generating gr-HEEP..."
-	$(PYTHON) $(X_HEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
-		--outtpl $(ROOT_DIR)/hw/gr-heep/gr_heep.sv.tpl
-	$(PYTHON) $(X_HEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
-		--outtpl $(ROOT_DIR)/hw/gr-heep/gr_heep_pad_ring.sv.tpl
-	$(PYTHON) $(X_HEEP_DIR)/util/mcu_gen.py $(MCU_GEN_OPTS) \
-		--outtpl $(ROOT_DIR)/tb/tb_util.svh.tpl
-	$(PYTHON) util/gr-heep-gen.py $(GR_HEEP_GEN_OPTS) \
-		--outdir hw/gr-heep \
-		--tpl-sv hw/gr-heep/gr_heep_pkg.sv.tpl \
-		--corev_pulp $(COREV_PULP)
-	$(PYTHON) util/gr-heep-gen.py $(GR_HEEP_GEN_OPTS) \
-		--outdir hw/gr-heep \
-		--tpl-sv hw/gr-heep/gr_heep_peripherals.sv.tpl
-	$(PYTHON) util/gr-heep-gen.py $(GR_HEEP_GEN_OPTS) \
-		--outdir sw/external/lib/runtime \
-		--tpl-c sw/external/lib/runtime/gr_heep.h.tpl
+gr-heep-gen: $(GR_HEEP_GEN_CFG) $(GR_HEEP_GEN_TPLS) $(X_HEEP_DIR)/util/mcu_gen.py mcu-gen
+	$(PYTHON) $(X_HEEP_DIR)/util/mcu_gen.py \
+		--cached_path $(XHEEP_CONFIG_CACHE) --cached \
+		--outtpl "$(GR_HEEP_GEN_TPLS)"
 	$(MAKE) verible
-	@echo "### DONE! gr-HEEP generated successfully"
-	touch $@
+
+## @section Verilator
 
 ## Verilator simulation with C++
 .PHONY: verilator-build
@@ -110,6 +110,8 @@ verilator-run:
 	$(FUSESOC) --cores-root . run --no-export --target=sim --tool=verilator $(FUSESOC_FLAGS) \
 		--run x-heep:systems:gr-heep $(FUSESOC_PARAM) \
 		--run_options="+firmware=../../../sw/build/main.hex $(SIM_ARGS)"
+
+## @section Questasim
 
 ## Questasim simulation
 .PHONY: questasim-build
@@ -161,6 +163,10 @@ vendor-update:
 vendor-update-all:
 	@echo "Updating all vendored modules..."
 	find hw/vendor -maxdepth 1 -type f -name "*.vendor.hjson" -exec ./util/vendor.py -vU {} \;
+
+## Create directories
+%/:
+	mkdir -p $@
 
 # Export variables
 export HEEP_DIR = $(X_HEEP_DIR)

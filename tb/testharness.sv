@@ -3,27 +3,30 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
 module testharness #(
-    parameter COREV_PULP                  = 0,
-    parameter FPU                         = 0,
-    parameter ZFINX                       = 0,
-    parameter X_EXT                       = 0,         // eXtension interface in cv32e40x
     parameter JTAG_DPI                    = 0,
     parameter USE_EXTERNAL_DEVICE_EXAMPLE = 1,
     parameter CLK_FREQUENCY               = 'd100_000  //KHz
 ) (
-    inout wire clk_i,
-    inout wire rst_ni,
-
-    inout wire boot_select_i,
-    inout wire execute_from_flash_i,
+`ifdef VERILATOR
+    input  wire         clk_i,
+    input  wire         rst_ni,
+    input  wire         boot_select_i,
+    input  wire         execute_from_flash_i,
+    output wire         exit_valid_o,
+`else  // VERILATOR
+    inout  wire         clk_i,
+    inout  wire         rst_ni,
+    inout  wire         boot_select_i,
+    inout  wire         execute_from_flash_i,
+    inout  wire         exit_valid_o,
+`endif  // VERILATOR
+    output logic [31:0] exit_value_o,
 
     input  wire         jtag_tck_i,
     input  wire         jtag_tms_i,
     input  wire         jtag_trst_ni,
     input  wire         jtag_tdi_i,
-    output wire         jtag_tdo_o,
-    output logic [31:0] exit_value_o,
-    inout  wire         exit_valid_o
+    output wire         jtag_tdo_o
 );
   `include "tb_util.svh"
 
@@ -34,6 +37,11 @@ module testharness #(
 
   localparam EXT_DOMAINS_RND = core_v_mini_mcu_pkg::EXTERNAL_DOMAINS == 0 ? 1 : core_v_mini_mcu_pkg::EXTERNAL_DOMAINS;
 
+  wire clk;
+  wire rst_n;
+  wire boot_select;
+  wire execute_from_flash;
+  wire exit_valid;
   wire uart_rx;
   wire uart_tx;
   logic sim_jtag_enable = (JTAG_DPI == 1);
@@ -74,11 +82,25 @@ module testharness #(
   logic [EXT_DOMAINS_RND-1:0] cpu_subsystem_powergate_switch_ack_n[SWITCH_ACK_LATENCY:0];
   logic [EXT_DOMAINS_RND-1:0] peripheral_subsystem_powergate_switch_ack_n[SWITCH_ACK_LATENCY:0];
 
+  // Inout pins assignments
+  // NOTE: These assignments are needed to avoid a Verilator 5.X error triggered when directly
+  // connecting primary input/output ports to inout ports of internal modules. It should be safe
+  // to remove this workaround once support for Verilator 4.X is dropped and proper handling of
+  // primary inout ports is implemented in the C++ testbench.
+  // See https://verilator.org/guide/latest/languages.html#tri-inout for details.
+  // You also need the ifdef VERILATOR around the primary inout ports declaration at the top of
+  // this module. This is copied from X-HEEP's testharness.sv.
+  assign clk = clk_i;
+  assign rst_n = rst_ni;
+  assign boot_select = boot_select_i;
+  assign execute_from_flash = execute_from_flash_i;
+  assign exit_valid_o = exit_valid;
+
   gr_heep gr_heep_i (
-      .clk_i,
-      .rst_ni,
-      .boot_select_i,
-      .execute_from_flash_i,
+      .clk_i(clk),
+      .rst_ni(rst_n),
+      .boot_select_i(boot_select),
+      .execute_from_flash_i(execute_from_flash),
       .jtag_tck_i(mux_jtag_tck),
       .jtag_tms_i(mux_jtag_tms),
       .jtag_trst_ni(mux_jtag_trstn),
@@ -86,7 +108,7 @@ module testharness #(
       .jtag_tdo_o(mux_jtag_tdo),
       .uart_rx_i(uart_rx),
       .uart_tx_o(uart_tx),
-      .exit_valid_o,
+      .exit_valid_o(exit_valid),
       .exit_value_o(exit_value),
       .gpio_0_io(gpio[0]),
       .gpio_1_io(gpio[1]),
