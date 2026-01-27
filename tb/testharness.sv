@@ -3,9 +3,11 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
 module testharness #(
-    parameter JTAG_DPI                    = 0,
-    parameter USE_EXTERNAL_DEVICE_EXAMPLE = 1,
-    parameter CLK_FREQUENCY               = 'd100_000  //KHz
+    parameter bit FPU_SS_ZFINX                = 0,
+    parameter bit QUADRILATERO                = 0,
+    parameter bit JTAG_DPI                    = 0,
+    parameter bit USE_EXTERNAL_DEVICE_EXAMPLE = 1,
+    parameter     CLK_FREQUENCY               = 'd100_000  //KHz
 ) (
 `ifdef VERILATOR
     input  wire         clk_i,
