@@ -27,7 +27,7 @@ PYTHON  := $(shell which python)
 endif
 
 # Implementation specific variables
-# TARGET options are 'asic' (default), 'pynq-z2', and 'zcu104'
+# TARGET options are 'asic' (default), 'pynq-z2', 'nexys-a7-100t', 'genesys2', 'aup-zu3', 'zcu102', and 'zcu104'
 TARGET ?= asic
 
 # X-HEEP mcu-gen configuration
@@ -40,7 +40,7 @@ EXTERNAL_DOMAINS	:= 0 # TO BE UPDATED according to the number of external domain
 
 ifeq ($(TARGET),asic)
 	PADS_CFG := $(PADS_CFG_ASIC)
-else ifeq ($(filter $(TARGET),pynq-z2 zcu104),$(TARGET))
+else ifeq ($(filter $(TARGET),pynq-z2 nexys-a7-100t genesys2 aup-zu3 zcu102 zcu104),$(TARGET))
 	PADS_CFG := $(PADS_CFG_FPGA)
 else
 	$(error ### ERROR: Unsupported target implementation: $(TARGET))
@@ -148,6 +148,11 @@ vivado-fpga:
 	$(FUSESOC) --cores-root . run --no-export --target=$(FPGA_BOARD) $(FUSESOC_FLAGS) \
 		--build x-heep:systems:gr-heep $(FUSESOC_PARAM) 2>&1 | tee buildvivado.log
 
+## Loads the generated bitstream into the FPGA
+## @param FPGA_BOARD=pynq-z2,nexys-a7-100t,genesys2,aup-zu3,zcu102,zcu104
+vivado-fpga-pgm:
+	$(FUSESOC) --cores-root . run --no-export --target=$(FPGA_BOARD) $(FUSESOC_FLAGS) \
+		--run x-heep:systems:gr-heep $(FUSESOC_PARAM) 2>&1 | tee programfpga.log
 
 ## @section Utilities
 
