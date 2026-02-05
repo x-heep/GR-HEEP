@@ -26,11 +26,6 @@
     #define PRINTF(...)
 #endif
 
-#if defined(TARGET_PYNQ_Z2) || defined(TARGET_ZCU104) || defined(TARGET_NEXYS_A7_100T)
-    #define USE_SPI_FLASH
-#endif
-
-
 // Start buffers (the original data)
 #include "buffer.h"
 // End buffer (where what is read is stored)
@@ -148,11 +143,7 @@ int main(int argc, char *argv[]) {
 
     // Pick the correct spi device based on simulation type
     spi_host_t* spi;
-    #ifndef USE_SPI_FLASH
-    spi = spi_host1;
-    #else
     spi = spi_flash;
-    #endif
 
     // Define status variable
     int32_t errors = 0;
@@ -163,23 +154,49 @@ int main(int argc, char *argv[]) {
     // Test simple read
     PRINTF("Testing simple read...\n");
     errors += test_read(TEST_BUFFER, LENGTH);
+    
+    if (errors) {
+        PRINTF("test_read FAILED\n");
+        return EXIT_FAILURE;
+    }
 
 #ifndef ON_CHIP
     PRINTF("Testing simple read on flash only data...\n");
     errors += test_read_flash_only(flash_only_buffer, FLASH_ONLY_BYTES);
+
+    if (errors) {
+        PRINTF("test_read_flash_only FAILED\n");
+        return EXIT_FAILURE;
+    }
+
 #endif
 
     // Test simple read with DMA
     PRINTF("Testing simple read with DMA...\n");
     errors += test_read_dma(TEST_BUFFER, LENGTH);
 
+    if (errors) {
+        PRINTF("test_read_dma FAILED\n");
+        return EXIT_FAILURE;
+    }
+
     // Test quad read
     PRINTF("Testing quad read...\n");
     errors += test_read_quad(TEST_BUFFER, LENGTH);
 
+    if (errors) {
+        PRINTF("test_read_quad FAILED\n");
+        return EXIT_FAILURE;
+    }
+
     // Test quad read with DMA
     PRINTF("Testing quad read with DMA...\n");
     errors += test_read_quad_dma(TEST_BUFFER, LENGTH);
+
+    if (errors) {
+        PRINTF("test_read_quad_dma FAILED\n");
+        return EXIT_FAILURE;
+    }
 
     PRINTF("\n--------TEST FINISHED--------\n");
     if (errors == 0) {
@@ -217,7 +234,7 @@ uint32_t test_read_flash_only(uint32_t *test_buffer, uint32_t len) {
     w25q_error_codes_t status = w25q128jw_read_standard(test_buffer_flash, flash_data, len);
     if (status != FLASH_OK) exit(EXIT_FAILURE);
 
-    printf("Checking Results \n");
+    PRINTF("Checking Results \n");
 
     // Check if what we read is correct (i.e. flash_data == test_buffer)
     uint32_t res =  check_result(flash_only_buffer_golden_value, len);
@@ -287,13 +304,8 @@ uint32_t check_result(uint8_t *test_buffer, uint32_t len) {
         if (test_buffer[i] != flash_data_char[i]) {
             PRINTF("Error at position %d: expected %x, got %x\n", i, test_buffer[i], flash_data_char[i]);
             errors++;
+            break;
         }
-    }
-
-    if (errors == 0) {
-        PRINTF("success!\n");
-    } else {
-        PRINTF("failure, %d errors!\n", errors);
     }
 
     return errors;

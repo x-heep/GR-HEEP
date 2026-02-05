@@ -6,19 +6,23 @@
  * Info: Direct Memory Access (DMA) channel module.
  */
 
-module dma #(
-    parameter int unsigned FIFO_DEPTH = 4,
+module dma
+  import fifo_pkg::*;
+#(
+    parameter int FIFO_DEPTH = 4,
+    parameter int RVALID_FIFO_DEPTH = 1,
+    parameter int unsigned SLOT_NUM = 0,
     parameter type reg_req_t = logic,
     parameter type reg_rsp_t = logic,
     parameter type obi_req_t = logic,
-    parameter type obi_resp_t = logic,
-    parameter int unsigned SLOT_NUM = 0
+    parameter type obi_resp_t = logic
 ) (
     input logic clk_i,
     input logic rst_ni,
     input logic clk_gate_en_ni,
 
     input logic ext_dma_stop_i,
+    input logic hw_fifo_done_i,
 
     input  reg_req_t reg_req_i,
     output reg_rsp_t reg_rsp_o,
@@ -32,6 +36,9 @@ module dma #(
     output obi_req_t  dma_addr_req_o,
     input  obi_resp_t dma_addr_resp_i,
 
+    input  fifo_resp_t hw_fifo_resp_i,
+    output fifo_req_t  hw_fifo_req_o,
+
     input logic [SLOT_NUM-1:0] trigger_slot_i,
 
     output dma_done_intr_o,
@@ -41,14 +48,7 @@ module dma #(
 );
 
   import dma_reg_pkg::*;
-
-
-  /*_________________________________________________________________________________________________________________________________ */
-
-  /* Parameter definition */
-
-  localparam int unsigned LastFifoUsage = FIFO_DEPTH - 1;
-  localparam int unsigned Addr_Fifo_Depth = (FIFO_DEPTH > 1) ? $clog2(FIFO_DEPTH) : 1;
+  `include "dma_conf.svh"
 
   /*_________________________________________________________________________________________________________________________________ */
 
@@ -62,14 +62,29 @@ module dma #(
   dma_hw2reg_t hw2reg;
 
   /* General signals */
-  logic dma_padding_fsm_on;
-  logic padding_fsm_done;
+  logic dma_processing_unit_on;
 
   logic dma_start;
+  logic dma_start_pending;
   logic dma_done;
-  logic dma_window_event;
+  logic dma_write_done_override;
+  logic dma_read_done_override;
 
-  logic window_done_q;
+  logic window_event;
+  logic [31:0] window_counter;
+
+  logic circular_mode;
+  logic address_mode;
+  logic hw_fifo_mode;
+
+  /* Buffer signals */
+  fifo_req_t read_buffer_req;
+  fifo_req_t read_addr_buffer_req;
+  fifo_req_t write_buffer_req;
+
+  fifo_resp_t read_buffer_resp;
+  fifo_resp_t read_addr_buffer_resp;
+  fifo_resp_t write_buffer_resp;
 
   logic data_in_req;
   logic data_in_we;
@@ -104,44 +119,31 @@ module dma #(
   logic dma_window_intr;
   logic dma_window_intr_n;
 
-  /* FIFO signals */
-  logic [Addr_Fifo_Depth-1:0] read_fifo_usage;
-  logic [Addr_Fifo_Depth-1:0] read_addr_fifo_usage;
-  logic [Addr_Fifo_Depth-1:0] write_fifo_usage;
+  /* Buffer unit signals */
+  logic general_buffer_flush;
 
-  logic fifo_flush;
-  logic read_fifo_full;
-  logic read_fifo_empty;
-  logic read_fifo_alm_full;
-  logic read_fifo_pop;
-  logic [31:0] read_fifo_input;
-  logic [31:0] read_fifo_output;
+  logic read_buffer_full;
+  logic read_buffer_empty;
+  logic read_buffer_alm_full;
+  logic read_buffer_pop;
+  logic [31:0] read_buffer_input;
+  logic [31:0] read_buffer_output;
 
-  logic read_addr_fifo_full;
-  logic read_addr_fifo_empty;
-  logic read_addr_fifo_alm_full;
-  logic [31:0] read_addr_fifo_output;
+  logic read_addr_buffer_full;
+  logic read_addr_buffer_empty;
+  logic read_addr_buffer_alm_full;
+  logic [31:0] read_addr_buffer_output;
 
-  logic write_fifo_full;
-  logic write_fifo_empty;
-  logic write_fifo_alm_full;
-  logic write_fifo_push;
-  logic write_fifo_pop;
-  logic [31:0] write_fifo_input;
-  logic [31:0] write_fifo_output;
+  logic write_buffer_full;
+  logic write_buffer_empty;
+  logic write_buffer_alm_full;
+  logic write_buffer_push;
+  logic [31:0] write_buffer_output;
+  logic [31:0] write_buffer_input;
 
   /* Trigger signals */
   logic wait_for_rx;
   logic wait_for_tx;
-
-  /* Datatypes */
-  typedef enum logic [1:0] {
-    DMA_DATA_TYPE_WORD,
-    DMA_DATA_TYPE_HALF_WORD,
-    DMA_DATA_TYPE_BYTE,
-    DMA_DATA_TYPE_BYTE_
-  } dma_data_type_t;
-
 
   /* FSM states */
   enum {
@@ -150,13 +152,6 @@ module dma #(
     DMA_RUNNING
   }
       dma_state_q, dma_state_d;
-
-  logic circular_mode;
-  logic address_mode;
-
-  logic dma_start_pending;
-
-  logic [31:0] window_counter;
 
   /*_________________________________________________________________________________________________________________________________ */
 
@@ -181,71 +176,7 @@ module dma #(
   assign clk_cg = clk_i & clk_gate_en_ni;
 `endif
 
-
-
-  /* Read FIFO */
-  fifo_v3 #(
-      .DEPTH(FIFO_DEPTH),
-      .FALL_THROUGH(1'b0)
-  ) dma_read_fifo_i (
-      .clk_i(clk_cg),
-      .rst_ni,
-      .flush_i(fifo_flush),
-      .testmode_i(1'b0),
-      // status flags
-      .full_o(read_fifo_full),
-      .empty_o(read_fifo_empty),
-      .usage_o(read_fifo_usage),
-      // as long as the queue is not full we can push new data
-      .data_i(read_fifo_input),
-      .push_i(data_in_rvalid),
-      // as long as the queue is not empty we can pop new elements
-      .data_o(read_fifo_output),
-      .pop_i(read_fifo_pop)
-  );
-
-  /* Read address mode FIFO */
-  fifo_v3 #(
-      .DEPTH(FIFO_DEPTH),
-      .FALL_THROUGH(1'b0)
-  ) dma_read_addr_fifo_i (
-      .clk_i(clk_cg),
-      .rst_ni,
-      .flush_i(fifo_flush),
-      .testmode_i(1'b0),
-      // status flags
-      .full_o(read_addr_fifo_full),
-      .empty_o(read_addr_fifo_empty),
-      .usage_o(read_addr_fifo_usage),
-      // as long as the queue is not full we can push new data
-      .data_i(data_addr_in_rdata),
-      .push_i(data_addr_in_rvalid),
-      // as long as the queue is not empty we can pop new elements
-      .data_o(read_addr_fifo_output),
-      .pop_i(write_fifo_pop && address_mode)  // not an error!
-  );
-
-  /* Write FIFO */
-  fifo_v3 #(
-      .DEPTH(FIFO_DEPTH),
-      .FALL_THROUGH(1'b1)
-  ) dma_write_fifo_i (
-      .clk_i(clk_cg),
-      .rst_ni,
-      .flush_i(fifo_flush),
-      .testmode_i(1'b0),
-      // status flags
-      .full_o(write_fifo_full),
-      .empty_o(write_fifo_empty),
-      .usage_o(write_fifo_usage),
-      // as long as the queue is not full we can push new data
-      .data_i(write_fifo_input),
-      .push_i(write_fifo_push),
-      // as long as the queue is not empty we can pop new elements
-      .data_o(write_fifo_output),
-      .pop_i(write_fifo_pop)
-  );
-
+  /* Registers */
   dma_reg_top #(
       .reg_req_t(reg_req_t),
       .reg_rsp_t(reg_rsp_t)
@@ -259,82 +190,159 @@ module dma #(
       .devmode_i(1'b1)
   );
 
-  /* Read FSM */
-  dma_obiread_fsm dma_obiread_fsm_i (
+  /* Buffer unit */
+  dma_buffer_unit #(
+      .FIFO_DEPTH(FIFO_DEPTH)
+  ) dma_buffer_unit_i (
       .clk_i(clk_cg),
       .rst_ni,
+
+      .dma_start_i(dma_start),
+
       .reg2hw_i(reg2hw),
+
+      .read_buffer_req_i(read_buffer_req),
+      .read_addr_buffer_req_i(read_addr_buffer_req),
+      .write_buffer_req_i(write_buffer_req),
+
+      .read_buffer_resp_o(read_buffer_resp),
+      .read_addr_buffer_resp_o(read_addr_buffer_resp),
+      .write_buffer_resp_o(write_buffer_resp),
+
+      .hw_fifo_resp_i,
+      .hw_fifo_req_o
+  );
+
+  /* Read unit */
+  dma_read_unit #(
+      .RVALID_FIFO_DEPTH(RVALID_FIFO_DEPTH)
+  ) dma_read_unit_i (
+      .clk_i(clk_cg),
+      .rst_ni,
+
+      .reg2hw_i(reg2hw),
+
       .dma_start_i(dma_start),
       .dma_done_i(dma_done),
-      .ext_dma_stop_i,
-      .read_fifo_full_i(read_fifo_full),
-      .read_fifo_alm_full_i(read_fifo_alm_full),
+      .dma_done_override_i(dma_read_done_override),
+
       .wait_for_rx_i(wait_for_rx),
+
+      .read_buffer_full_i(read_buffer_full),
+      .read_buffer_alm_full_i(read_buffer_alm_full),
+
+      .read_buffer_input_o(read_buffer_input),
+
       .data_in_gnt_i(data_in_gnt),
       .data_in_rvalid_i(data_in_rvalid),
       .data_in_rdata_i(data_in_rdata),
-      .fifo_input_o(read_fifo_input),
+
       .data_in_req_o(data_in_req),
       .data_in_we_o(data_in_we),
       .data_in_be_o(data_in_be),
       .data_in_addr_o(data_in_addr),
-      .read_fifo_flush_o(fifo_flush)
+      .general_buffer_flush_o(general_buffer_flush)
   );
 
-  /* Read address FSM */
-  dma_obiread_addr_fsm dma_obiread_addr_fsm_i (
+  /* Read address unit */
+`ifdef ADDR_MODE_EN
+  dma_read_addr_unit dma_read_addr_unit_i (
       .clk_i(clk_cg),
       .rst_ni,
+
       .reg2hw_i(reg2hw),
+
       .dma_start_i(dma_start),
-      .ext_dma_stop_i,
-      .read_fifo_addr_full_i(read_addr_fifo_full),
-      .read_fifo_addr_alm_full_i(read_addr_fifo_alm_full),
-      .address_mode_i(address_mode),
-      .data_in_gnt_i(data_addr_in_gnt),
-      .data_addr_in_req_o(data_addr_in_req),
-      .data_addr_in_we_o(data_addr_in_we),
-      .data_addr_in_be_o(data_addr_in_be),
+      .dma_done_override_i(dma_write_done_override),
+
+      .read_addr_buffer_full_i(read_addr_buffer_full),
+      .read_addr_buffer_alm_full_i(read_addr_buffer_alm_full),
+
+      .data_addr_in_gnt_i (data_addr_in_gnt),
+      .data_addr_in_req_o (data_addr_in_req),
+      .data_addr_in_we_o  (data_addr_in_we),
+      .data_addr_in_be_o  (data_addr_in_be),
       .data_addr_in_addr_o(data_addr_in_addr)
   );
+`else
+  assign data_addr_in_req  = '0;
+  assign data_addr_in_we   = '0;
+  assign data_addr_in_be   = '0;
+  assign data_addr_in_addr = '0;
+`endif
 
-  /* DMA padding FSM */
-  dma_padding_fsm dma_padding_fsm_i (
+
+  /* DMA processing unit */
+`ifdef ZERO_PADDING_EN
+  dma_processing_unit dma_processing_unit_i (
       .clk_i(clk_cg),
       .rst_ni,
+
       .reg2hw_i(reg2hw),
-      .dma_padding_fsm_on_i(dma_padding_fsm_on),
+
+      .dma_processing_unit_on_i(dma_processing_unit_on),
       .dma_start_i(dma_start),
-      .read_fifo_empty_i(read_fifo_empty),
-      .write_fifo_full_i(write_fifo_full),
-      .write_fifo_alm_full_i(write_fifo_alm_full),
-      .data_read_i(read_fifo_output),
-      .padding_fsm_done_o(padding_fsm_done),
-      .write_fifo_push_o(write_fifo_push),
-      .read_fifo_pop_o(read_fifo_pop),
-      .data_write_o(write_fifo_input)
+
+      .read_buffer_empty_i(read_buffer_empty),
+      .write_buffer_full_i(write_buffer_full),
+      .write_buffer_alm_full_i(write_buffer_alm_full),
+
+      .read_buffer_output_i(read_buffer_output),
+
+      .write_buffer_push_o(write_buffer_push),
+      .read_buffer_pop_o  (read_buffer_pop),
+
+      .write_buffer_input_o(write_buffer_input)
   );
+`else
+  logic read_buffer_en;
+  logic write_buffer_en;
 
-  /* Write FSM */
-  dma_obiwrite_fsm dma_obiwrite_fsm_i (
+  /* Read FIFO pop enable */
+  assign read_buffer_en  = (read_buffer_empty == 1'b0);
+
+  /* Write FIFO push enable */
+  assign write_buffer_en = (write_buffer_full == 1'b0 && write_buffer_alm_full == 1'b0);
+
+  always_comb begin
+    if (read_buffer_en && write_buffer_en && dma_processing_unit_on == 1'b1) begin
+      write_buffer_input = read_buffer_output;
+      write_buffer_push  = 1'b1;
+      read_buffer_pop    = 1'b1;
+    end else begin
+      write_buffer_input = '0;
+      write_buffer_push  = 1'b0;
+      read_buffer_pop    = 1'b0;
+    end
+  end
+`endif
+
+
+  /* Write unit */
+  dma_write_unit dma_write_unit_i (
       .clk_i(clk_cg),
       .rst_ni,
+
       .reg2hw_i(reg2hw),
+
       .dma_start_i(dma_start),
-      .write_fifo_empty_i(write_fifo_empty),
-      .read_addr_fifo_empty_i(read_addr_fifo_empty),
-      .fifo_output_i(write_fifo_output),
       .wait_for_tx_i(wait_for_tx),
-      .address_mode_i(address_mode),
-      .padding_fsm_done_i(padding_fsm_done),
-      .fifo_addr_output_i(read_addr_fifo_output),
+      .dma_done_o(dma_done),
+      .dma_done_override_i(dma_write_done_override),
+
+      .write_buffer_empty_i(write_buffer_empty),
+      .read_addr_buffer_empty_i(read_addr_buffer_empty),
+
+      .write_buffer_output_i(write_buffer_output),
+      .read_addr_buffer_output_i(read_addr_buffer_output),
+
       .data_out_gnt_i(data_out_gnt),
+
       .data_out_req_o(data_out_req),
       .data_out_we_o(data_out_we),
       .data_out_be_o(data_out_be),
       .data_out_addr_o(data_out_addr),
-      .data_out_wdata_o(data_out_wdata),
-      .dma_done_o(dma_done)
+      .data_out_wdata_o(data_out_wdata)
   );
 
   /*_________________________________________________________________________________________________________________________________ */
@@ -422,7 +430,7 @@ module dma #(
       window_ifr <= '0;
     end else if (reg2hw.interrupt_en.window_done.q == 1'b1) begin
       // Enter here only if the window_done interrupt is enabled
-      if (dma_window_event == 1'b1) begin
+      if (window_event == 1'b1) begin
         window_ifr <= 1'b1;
       end else if (reg2hw.window_ifr.re == 1'b1) begin
         // If the IFR bit is read, we must clear the window_ifr
@@ -440,17 +448,17 @@ module dma #(
     end
   end
 
-
+  /* Window event counter */
   always_ff @(posedge clk_cg, negedge rst_ni) begin : proc_dma_window_cnt
     if (~rst_ni) begin
-      window_counter <= 'h0;
+      window_counter <= '0;
     end else begin
       if (|reg2hw.window_size.q) begin
-        if (dma_start | dma_done) begin
-          window_counter <= 'h0;
+        if ( (circular_mode && reg2hw.window_size.qe) || (~circular_mode && (dma_start | dma_done))) begin
+          window_counter <= '0;
         end else if (data_out_gnt) begin
-          if (window_counter + 'h1 >= {19'h0, reg2hw.window_size.q}) begin
-            window_counter <= 'h0;
+          if (window_event) begin
+            window_counter <= '0;
           end else begin
             window_counter <= window_counter + 'h1;
           end
@@ -459,47 +467,34 @@ module dma #(
     end
   end
 
-  // Update WINDOW_COUNT register
-  always_comb begin : proc_dma_window_cnt_reg
-    hw2reg.window_count.d  = reg2hw.window_count.q + 'h1;
-    hw2reg.window_count.de = 1'b0;
-    if (dma_start) begin
-      hw2reg.window_count.d  = 'h0;
-      hw2reg.window_count.de = 1'b1;
-    end else if (dma_window_event) begin
-      hw2reg.window_count.de = 1'b1;
-    end
-  end
-
-  // update window_done flag
-  // set on dma_window_event
-  // reset on read
-  always_ff @(posedge clk_cg, negedge rst_ni) begin : proc_dma_window_done
-    if (~rst_ni) begin
-      window_done_q <= 1'b0;
-    end else begin
-      if (dma_window_event) window_done_q <= 1'b1;
-      else if (reg2hw.status.window_done.re) window_done_q <= 1'b0;
-    end
-  end
-
+  /* Update Processing Unit start signal */
   always_ff @(posedge clk_cg, negedge rst_ni) begin
     if (~rst_ni) begin
-      dma_padding_fsm_on <= 1'b0;
+      dma_processing_unit_on <= 1'b0;
     end else begin
       if (dma_start == 1'b1) begin
-        dma_padding_fsm_on <= 1'b1;
+        dma_processing_unit_on <= 1'b1;
       end else if (dma_done == 1'b1) begin
-        dma_padding_fsm_on <= 1'b0;
+        dma_processing_unit_on <= 1'b0;
       end
     end
   end
+
+  /* HW FIFO done signal override logic */
+`ifdef HW_FIFO_MODE_EN
+  assign dma_write_done_override = (write_buffer_empty & hw_fifo_done_i & hw_fifo_mode) || ext_dma_stop_i;
+`else
+  assign dma_write_done_override = ext_dma_stop_i;
+`endif
+
+  assign dma_read_done_override = ext_dma_stop_i;
 
 
   /*_________________________________________________________________________________________________________________________________ */
 
   /* Signal assignments */
 
+  /* General signals */
   assign dma_done_o = dma_done;
   assign dma_start = (dma_state_q == DMA_STARTING);
 
@@ -535,7 +530,35 @@ module dma #(
   assign data_out_rdata = dma_write_resp_i.rdata;
 
   /* FIFO signals */
-  assign write_fifo_pop = (dma_state_q == DMA_RUNNING) & data_out_gnt; // @TOD0: check if this is correct
+  assign read_buffer_req.push = data_in_rvalid;
+  assign read_buffer_req.pop = read_buffer_pop;
+  assign read_buffer_req.flush = general_buffer_flush;
+  assign read_buffer_req.data = read_buffer_input;
+
+  assign read_buffer_empty = read_buffer_resp.empty;
+  assign read_buffer_full = read_buffer_resp.full;
+  assign read_buffer_alm_full = read_buffer_resp.alm_full;
+  assign read_buffer_output = read_buffer_resp.data;
+
+  assign read_addr_buffer_req.push = data_addr_in_rvalid;
+  assign read_addr_buffer_req.pop = data_out_gnt && address_mode;
+  assign read_addr_buffer_req.flush = general_buffer_flush;
+  assign read_addr_buffer_req.data = data_addr_in_rdata;
+
+  assign read_addr_buffer_empty = read_addr_buffer_resp.empty;
+  assign read_addr_buffer_full = read_addr_buffer_resp.full;
+  assign read_addr_buffer_alm_full = read_addr_buffer_resp.alm_full;
+  assign read_addr_buffer_output = read_addr_buffer_resp.data;
+
+  assign write_buffer_req.push = write_buffer_push;
+  assign write_buffer_req.pop = (dma_state_q == DMA_RUNNING) & data_out_gnt;
+  assign write_buffer_req.flush = general_buffer_flush;
+  assign write_buffer_req.data = write_buffer_input;
+
+  assign write_buffer_empty = write_buffer_resp.empty;
+  assign write_buffer_full = write_buffer_resp.full;
+  assign write_buffer_alm_full = write_buffer_resp.alm_full;
+  assign write_buffer_output = write_buffer_resp.data;
 
   assign dma_done_intr = transaction_ifr;
   assign dma_done_intr_o = dma_done_intr_n;
@@ -546,21 +569,19 @@ module dma #(
   assign hw2reg.window_ifr.d = window_ifr;
 
   assign hw2reg.status.ready.d = (dma_state_q == DMA_READY);
-  assign hw2reg.status.window_done.d = window_done_q;
+  assign hw2reg.status.window_done.d = window_event;
 
   assign circular_mode = reg2hw.mode.q == 1;
   assign address_mode = reg2hw.mode.q == 2;
+  assign hw_fifo_mode = reg2hw.hw_fifo_en.q;
 
   assign wait_for_rx = |(reg2hw.slot.rx_trigger_slot.q[SLOT_NUM-1:0] & (~trigger_slot_i));
   assign wait_for_tx = |(reg2hw.slot.tx_trigger_slot.q[SLOT_NUM-1:0] & (~trigger_slot_i));
 
-  assign read_fifo_alm_full = (read_fifo_usage == LastFifoUsage[Addr_Fifo_Depth-1:0]);
-  assign read_addr_fifo_alm_full = (read_addr_fifo_usage == LastFifoUsage[Addr_Fifo_Depth-1:0]);
-  assign write_fifo_alm_full = (write_fifo_usage == LastFifoUsage[Addr_Fifo_Depth-1:0]);
-
-
-  // WINDOW EVENT
-  // Count gnt write transaction and generate event pulse if WINDOW_SIZE is reached
-  assign dma_window_event = |reg2hw.window_size.q &  data_out_gnt & (window_counter + 'h1 >= {19'h0, reg2hw.window_size.q});
+  /* Logic for window counter */
+  //TODO: is it really necessary? Do we need to write into a register how many events are done?
+  //      Or do we need only the window donw signal?
+  assign window_event = |reg2hw.window_size.q & data_out_gnt & (window_counter == {19'h0, reg2hw.window_size.q});
+  assign hw2reg.window_count.d = window_counter;
 
 endmodule : dma

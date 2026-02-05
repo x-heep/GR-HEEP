@@ -27,6 +27,7 @@
 data_t output_data[OH_NCHW*OW_NCHW];
 data_t* input_image_ptr = &input_image_nchw[0];
 data_t* output_data_ptr = &output_data[0];
+dma *trash_peri = dma_peri(2);
 
 char im2col_done = 0;
 int ifr_status;
@@ -47,6 +48,30 @@ __attribute__ ((optimize("O0"))) void waiting_for_spc_irq( void )
   {
     asm volatile ("wfi");
   }
+}
+
+void dma_run(dma_trans_t * trans)
+{
+    int res = dma_validate_transaction(trans, DMA_ENABLE_REALIGN, DMA_PERFORM_CHECKS_INTEGRITY );
+    PRINTF_DEB("DMA validation result: %d\n\r", res);
+    res = dma_load_transaction(trans);
+    PRINTF_DEB("DMA load result: %d\n\r", res);
+    res = dma_launch(trans);
+    PRINTF_DEB("DMA launch result: %d\n\r", res);
+
+    while( ! dma_is_ready(0)) {
+        /* Disable_interrupts */
+        /* This does not prevent waking up the core as this is controlled by the MIP register */
+        
+        CSR_CLEAR_BITS(CSR_REG_MSTATUS, 0x8);
+        if ( dma_is_ready(0) == 0 ) {
+            asm volatile("wfi");
+            /* From here the core wakes up even if we did not jump to the ISR */
+        }
+        CSR_SET_BITS(CSR_REG_MSTATUS, 0x8);
+    }
+
+    return;
 }
 
 int im2col_nchw_int32(uint8_t test_id, unsigned int *cycles)
@@ -164,7 +189,7 @@ int im2col_nchw_int32(uint8_t test_id, unsigned int *cycles)
         dma_config_flags_t res;
 
         static dma_target_t tgt_src = {
-                                    .ptr        = input_image_nchw,
+                                    .ptr        = (uint8_t*)input_image_nchw,
                                     .inc_d1_du  = STRIDE_D1,
                                     .type       = INPUT_DATATYPE
                             };
@@ -219,13 +244,9 @@ int im2col_nchw_int32(uint8_t test_id, unsigned int *cycles)
                 {
                     n_zeros_left = 0;
                 }
-                else if ( (LEFT_PAD - w_offset) % STRIDE_D1 == 0 )
-                {
-                    n_zeros_left = (LEFT_PAD - w_offset) / STRIDE_D1;
-                }
                 else
                 {
-                    n_zeros_left = (LEFT_PAD - w_offset) / STRIDE_D1 + 1;
+                    n_zeros_left = 1 + (LEFT_PAD - w_offset -1) / STRIDE_D1;
                 }
 
                 /* Computing the number of zeros on the top */
@@ -235,13 +256,9 @@ int im2col_nchw_int32(uint8_t test_id, unsigned int *cycles)
                 {
                     n_zeros_top = 0;
                 }
-                else if ( (TOP_PAD - h_offset) % STRIDE_D2 == 0 )
-                {
-                    n_zeros_top = (TOP_PAD - h_offset) / STRIDE_D2;
-                }
                 else
                 {
-                    n_zeros_top = (TOP_PAD - h_offset) / STRIDE_D2 + 1;
+                    n_zeros_top = 1 + (TOP_PAD - h_offset - 1) / STRIDE_D2;
                 }
 
                 /* Computing the number of zeros on the right */
@@ -249,17 +266,13 @@ int im2col_nchw_int32(uint8_t test_id, unsigned int *cycles)
                 /* To adapt the final case to the formulas used to the first padded region, let's compute an "adapted" padded region,
                 /* by removing the elements of the row uncovered by the sliding filter */
                 
-                if (fw_minus_w_offset >= RIGHT_PAD || ADPT_PAD_RIGHT == 0)
+                if (LAST_PATCH_W + w_offset + 1 <= 0)
                 {
                     n_zeros_right = 0;
                 }
-                else if ( (ADPT_PAD_RIGHT - (fw_minus_w_offset)) % STRIDE_D1 == 0 )
-                {
-                    n_zeros_right = (ADPT_PAD_RIGHT - (fw_minus_w_offset)) / STRIDE_D1;
-                }
                 else
                 {
-                    n_zeros_right = (ADPT_PAD_RIGHT - (fw_minus_w_offset)) / STRIDE_D1 + 1;
+                  n_zeros_right = 1 + (LAST_PATCH_W + w_offset)/STRIDE_D1;
                 }
 
                 /* Computing the number of zeros on the bottom */
@@ -267,23 +280,21 @@ int im2col_nchw_int32(uint8_t test_id, unsigned int *cycles)
                 /* To adapt the final case to the formulas used to the first padded region, let's compute an "adapted" padded region,
                 /* by removing the elements of the row uncovered by the sliding filter */
 
-                if (fh_minus_h_offset >= BOTTOM_PAD || ADPT_PAD_BOTTOM == 0)
+                if (LAST_PATCH_H + h_offset + 1 <= 0)
                 {
                     n_zeros_bottom = 0;
                 }
-                else if ( (ADPT_PAD_BOTTOM - (fh_minus_h_offset)) % STRIDE_D2 == 0)
-                {
-                    n_zeros_bottom = (ADPT_PAD_BOTTOM - (fh_minus_h_offset)) / STRIDE_D2;
-                }
                 else
                 {
-                    n_zeros_bottom = (ADPT_PAD_BOTTOM - (fh_minus_h_offset)) / STRIDE_D2 + 1;
+                    n_zeros_bottom = 1 + (LAST_PATCH_H + h_offset)/STRIDE_D2;
                 }
 
                 /* Compute the number of elements to transfer */
                 size_transfer = N_PATCHES_W - n_zeros_left - n_zeros_right;
                 size_transfer_d2 = N_PATCHES_H - n_zeros_top - n_zeros_bottom;
 
+                PRINTF_DEB("\n\rLAST_PATCH_H: %d, LAST_PATCH_H + h_offset + 1 - IH: %d", LAST_PATCH_H, LAST_PATCH_H + h_offset + 1 - IH);
+                PRINTF_DEB("\n\rLAST_PATCH_W: %d, LAST_PATCH_W + w_offset + 1 - IW: %d", LAST_PATCH_W, LAST_PATCH_W + w_offset + 1 - IW);
                 PRINTF_DEB("\n\rn_zeros_left: %d, n_zeros_right: %d, n_zeros_top: %d, n_zeros_bottom: %d", n_zeros_left, n_zeros_right, n_zeros_top, n_zeros_bottom);
                 PRINTF_DEB("\n\rsize_transfer: %d, size_transfer_d2: %d\n\r", size_transfer, size_transfer_d2);
     
@@ -296,10 +307,10 @@ int im2col_nchw_int32(uint8_t test_id, unsigned int *cycles)
                 input_image_ptr = &input_image_nchw[0] + index;
                 PRINTF_DEB("\n\rsrc_ptr: %x dst_ptr: %x\n\r", input_image_ptr, output_data_ptr);
 
-                tgt_src.ptr = input_image_ptr;
+                tgt_src.ptr = (uint8_t*)input_image_ptr;
                 tgt_src.inc_d2_du = src_inc_d2;
 
-                tgt_dst.ptr = output_data_ptr;
+                tgt_dst.ptr = (uint8_t*)output_data_ptr;
 
                 trans.src = &tgt_src;
                 trans.dst = &tgt_dst;
@@ -385,7 +396,7 @@ int im2col_nchw_int32(uint8_t test_id, unsigned int *cycles)
         timer_start();
         #endif
 
-        im2col_spc_init(NULL);
+        im2col_spc_init(0);
 
         static im2col_trans_t im2col_spc_trans = {
           .ch_mask = SPC_CH_MASK,
@@ -404,8 +415,8 @@ int im2col_nchw_int32(uint8_t test_id, unsigned int *cycles)
           .right_pad = RIGHT_PAD,
           .top_pad = TOP_PAD,
           .bottom_pad = BOTTOM_PAD,
-          .adpt_pad_right = ADPT_PAD_RIGHT,
-          .adpt_pad_bottom = ADPT_PAD_BOTTOM,
+          .last_patch_w = LAST_PATCH_W,
+          .last_patch_h = LAST_PATCH_H,
           .datatype = INPUT_DATATYPE
         };
 
@@ -455,35 +466,11 @@ int verify()
           {    
               if (golden_im2col_nchw[i*OW_NCHW + j] != output_data[i*OW_NCHW + j])
               {
-                  PRINTF("ERROR: Golden: %d, Output: %d, at %d %d %x\n\r", golden_im2col_nchw[i*OW_NCHW + j], output_data[i*OW_NCHW + j], i, j, &output_data[i*OW_NCHW + j]);
+                  PRINTF_DEB("ERROR: Golden: %d, Output: %d, at %d %d %x\n\r", golden_im2col_nchw[i*OW_NCHW + j], output_data[i*OW_NCHW + j], i, j, &output_data[i*OW_NCHW + j]);
                   errors ++;
               }
           }
       }
     
     return errors;
-}
-
-void dma_run(dma_trans_t * trans)
-{
-    int res = dma_validate_transaction(trans, DMA_ENABLE_REALIGN, DMA_PERFORM_CHECKS_INTEGRITY );
-    PRINTF_DEB("DMA validation result: %d\n\r", res);
-    res = dma_load_transaction(trans);
-    PRINTF_DEB("DMA load result: %d\n\r", res);
-    res = dma_launch(trans);
-    PRINTF_DEB("DMA launch result: %d\n\r", res);
-
-    while( ! dma_is_ready(0)) {
-        /* Disable_interrupts */
-        /* This does not prevent waking up the core as this is controlled by the MIP register */
-        
-        CSR_CLEAR_BITS(CSR_REG_MSTATUS, 0x8);
-        if ( dma_is_ready(0) == 0 ) {
-            asm volatile("wfi");
-            /* From here the core wakes up even if we did not jump to the ISR */
-        }
-        CSR_SET_BITS(CSR_REG_MSTATUS, 0x8);
-    }
-
-    return;
 }

@@ -1,0 +1,42 @@
+# Copyright 2019 ETH Zurich and University of Bologna.
+# Solderpad Hardware License, Version 0.51, see LICENSE for details.
+# SPDX-License-Identifier: SHL-0.51
+package:
+  name: quadrilatero
+  authors: ["Danilo Cammarata <dcammarata@iis.ee.ethz.ch>"]
+
+dependencies:
+  common_cells: {git: "https://github.com/pulp-platform/common_cells.git",  version: 1.28.0     }
+  FPnew:        {git: "https://github.com/pulp-platform/cvfpu.git",         rev:     pulp-v0.1.3}
+
+sources:
+  - rtl/include/cv32e40x_pkg.sv
+  - rtl/include/if_xif.sv
+  - rtl/include/obi_pkg.sv
+  - rtl/include/xif_pkg.sv
+  - rtl/include/quadrilatero_instr_pkg.sv
+  - rtl/include/quadrilatero_pkg.sv
+  - rtl/quadrilatero.sv
+  - rtl/quadrilatero_decoder.sv
+  - rtl/quadrilatero_deskewer.sv
+  - rtl/quadrilatero_dispatcher.sv
+  - rtl/quadrilatero_ff_fs_dr_stage.sv
+  - rtl/quadrilatero_fixed_prio_arbiter.sv
+  - rtl/quadrilatero_lsu.sv
+  - rtl/quadrilatero_mac_float.sv
+  - rtl/quadrilatero_mac_int.sv
+  - rtl/quadrilatero_mesh.sv
+  - rtl/quadrilatero_pe.sv
+  - rtl/quadrilatero_perm_unit.sv
+  - rtl/quadrilatero_regfile.sv
+  - rtl/quadrilatero_register_lsu.sv
+  - rtl/quadrilatero_register_lsu_controller.sv
+  - rtl/quadrilatero_rf_sequencer.sv
+  - rtl/quadrilatero_rr_arbiter.sv
+  - rtl/quadrilatero_skewer.sv
+  - rtl/quadrilatero_systolic_array.sv
+  - rtl/quadrilatero_systolic_array_controller.sv
+  - rtl/quadrilatero_to_obi.sv
+  - rtl/quadrilatero_wl_stage.sv
+  - rtl/quadrilatero_wrapper.sv
+  - rtl/quadrilatero_xif_decoder.sv

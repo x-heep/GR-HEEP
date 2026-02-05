@@ -2,6 +2,10 @@
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
+<%
+  user_peripheral_domain = xheep.get_user_peripheral_domain()
+%>
+
 module peripheral_subsystem
   import obi_pkg::*;
   import reg_pkg::*;
@@ -23,18 +27,9 @@ module peripheral_subsystem
     output logic                irq_plic_o,
     output logic                msip_o,
 
-    //UART PLIC interrupts
-    input logic uart_intr_tx_watermark_i,
-    input logic uart_intr_rx_watermark_i,
-    input logic uart_intr_tx_empty_i,
-    input logic uart_intr_rx_overflow_i,
-    input logic uart_intr_rx_frame_err_i,
-    input logic uart_intr_rx_break_err_i,
-    input logic uart_intr_rx_timeout_i,
-    input logic uart_intr_rx_parity_err_i,
-
-    // DMA window PLIC interrupt
-    input logic dma_window_intr_i,
+    // UART
+    input  logic uart_rx_i,
+    output logic uart_tx_o,
 
     //GPIO
     input  logic [31:8] cio_gpio_i,
@@ -70,6 +65,7 @@ module peripheral_subsystem
     output logic [                        3:0] spi2_sd_en_o,
     input  logic [                        3:0] spi2_sd_i,
 
+
     //RV TIMER
     output logic rv_timer_2_intr_o,
     output logic rv_timer_3_intr_o,
@@ -99,8 +95,8 @@ module peripheral_subsystem
   reg_pkg::reg_req_t peripheral_req;
   reg_pkg::reg_rsp_t peripheral_rsp;
 
-  reg_pkg::reg_req_t [core_v_mini_mcu_pkg::PERIPHERALS-1:0] peripheral_slv_req;
-  reg_pkg::reg_rsp_t [core_v_mini_mcu_pkg::PERIPHERALS-1:0] peripheral_slv_rsp;
+  reg_pkg::reg_req_t [core_v_mini_mcu_pkg::PERIPHERALS_RND-1:0] peripheral_slv_req;
+  reg_pkg::reg_rsp_t [core_v_mini_mcu_pkg::PERIPHERALS_RND-1:0] peripheral_slv_rsp;
 
   tlul_pkg::tl_h2d_t plic_tl_h2d;
   tlul_pkg::tl_d2h_t plic_tl_d2h;
@@ -110,6 +106,9 @@ module peripheral_subsystem
 
   tlul_pkg::tl_h2d_t rv_timer_tl_h2d;
   tlul_pkg::tl_d2h_t rv_timer_tl_d2h;
+
+  tlul_pkg::tl_h2d_t uart_tl_h2d;
+  tlul_pkg::tl_d2h_t uart_tl_d2h;
 
   logic [rv_plic_reg_pkg::NumTarget-1:0] irq_plic;
   logic [rv_plic_reg_pkg::NumSrc-1:0] intr_vector;
@@ -139,20 +138,28 @@ module peripheral_subsystem
   logic i2c_intr_host_timeout;
   logic spi2_intr_event;
   logic i2s_intr_event;
+  logic uart_intr_tx_watermark;
+  logic uart_intr_rx_watermark;
+  logic uart_intr_tx_empty;
+  logic uart_intr_rx_overflow;
+  logic uart_intr_rx_frame_err;
+  logic uart_intr_rx_break_err;
+  logic uart_intr_rx_timeout;
+  logic uart_intr_rx_parity_err;
 
   // this avoids lint errors
   assign unused_irq_id = irq_id;
 
   // Assign internal interrupts
   assign intr_vector[${interrupts["null_intr"]}] = 1'b0;  // ID [0] is a special case and must be tied to zero.
-  assign intr_vector[${interrupts["uart_intr_tx_watermark"]}] = uart_intr_tx_watermark_i;
-  assign intr_vector[${interrupts["uart_intr_rx_watermark"]}] = uart_intr_rx_watermark_i;
-  assign intr_vector[${interrupts["uart_intr_tx_empty"]}] = uart_intr_tx_empty_i;
-  assign intr_vector[${interrupts["uart_intr_rx_overflow"]}] = uart_intr_rx_overflow_i;
-  assign intr_vector[${interrupts["uart_intr_rx_frame_err"]}] = uart_intr_rx_frame_err_i;
-  assign intr_vector[${interrupts["uart_intr_rx_break_err"]}] = uart_intr_rx_break_err_i;
-  assign intr_vector[${interrupts["uart_intr_rx_timeout"]}] = uart_intr_rx_timeout_i;
-  assign intr_vector[${interrupts["uart_intr_rx_parity_err"]}] = uart_intr_rx_parity_err_i;
+  assign intr_vector[${interrupts["uart_intr_tx_watermark"]}] = uart_intr_tx_watermark;
+  assign intr_vector[${interrupts["uart_intr_rx_watermark"]}] = uart_intr_rx_watermark;
+  assign intr_vector[${interrupts["uart_intr_tx_empty"]}] = uart_intr_tx_empty;
+  assign intr_vector[${interrupts["uart_intr_rx_overflow"]}] = uart_intr_rx_overflow;
+  assign intr_vector[${interrupts["uart_intr_rx_frame_err"]}] = uart_intr_rx_frame_err;
+  assign intr_vector[${interrupts["uart_intr_rx_break_err"]}] = uart_intr_rx_break_err;
+  assign intr_vector[${interrupts["uart_intr_rx_timeout"]}] = uart_intr_rx_timeout;
+  assign intr_vector[${interrupts["uart_intr_rx_parity_err"]}] = uart_intr_rx_parity_err;
   assign intr_vector[${interrupts["gpio_intr_31"]}:${interrupts["gpio_intr_8"]}] = gpio_intr;
   assign intr_vector[${interrupts["intr_fmt_watermark"]}] = i2c_intr_fmt_watermark;
   assign intr_vector[${interrupts["intr_rx_watermark"]}] = i2c_intr_rx_watermark;
@@ -172,10 +179,9 @@ module peripheral_subsystem
   assign intr_vector[${interrupts["intr_host_timeout"]}] = i2c_intr_host_timeout;
   assign intr_vector[${interrupts["spi2_intr_event"]}] = spi2_intr_event;
   assign intr_vector[${interrupts["i2s_intr_event"]}] = i2s_intr_event;
-  assign intr_vector[${interrupts["dma_window_intr"]}]  = dma_window_intr_i;
 
   // External interrupts assignement
-  for (genvar i = 0; i < NEXT_INT; i++) begin
+  for (genvar i = 0; i < NEXT_INT; i++) begin : gen_external_intr_vect
     assign intr_vector[i+PLIC_USED_NINT] = intr_vector_ext_i[i];
   end
 
@@ -247,8 +253,8 @@ module peripheral_subsystem
   );
 
   addr_decode #(
-      .NoIndices(core_v_mini_mcu_pkg::PERIPHERALS),
-      .NoRules(core_v_mini_mcu_pkg::PERIPHERALS),
+      .NoIndices(core_v_mini_mcu_pkg::PERIPHERALS_RND),
+      .NoRules(core_v_mini_mcu_pkg::PERIPHERALS_RND),
       .addr_t(logic [31:0]),
       .rule_t(addr_map_rule_pkg::addr_map_rule_t)
   ) i_addr_decode_soc_regbus_periph_xbar (
@@ -262,7 +268,7 @@ module peripheral_subsystem
   );
 
   reg_demux #(
-      .NoPorts(core_v_mini_mcu_pkg::PERIPHERALS),
+      .NoPorts(core_v_mini_mcu_pkg::PERIPHERALS_RND),
       .req_t  (reg_pkg::reg_req_t),
       .rsp_t  (reg_pkg::reg_rsp_t)
   ) reg_demux_i (
@@ -275,6 +281,7 @@ module peripheral_subsystem
       .out_rsp_i(peripheral_slv_rsp)
   );
 
+% if user_peripheral_domain.contains_peripheral('rv_plic'):
   reg_to_tlul #(
       .req_t(reg_pkg::reg_req_t),
       .rsp_t(reg_pkg::reg_rsp_t),
@@ -292,9 +299,6 @@ module peripheral_subsystem
       .reg_rsp_o(peripheral_slv_rsp[core_v_mini_mcu_pkg::RV_PLIC_IDX])
   );
 
-% for peripheral in peripherals.items():
-% if peripheral[0] in ("rv_plic"):
-% if peripheral[1]['is_included'] in ("yes"):
   rv_plic rv_plic_i (
       .clk_i(clk_cg),
       .rst_ni,
@@ -308,19 +312,15 @@ module peripheral_subsystem
 % else:
   assign msip_o = '0;
 
-  for(genvar i=0; i<rv_plic_reg_pkg::NumTarget; i=i+1) begin
+  for(genvar i=0; i<rv_plic_reg_pkg::NumTarget; i=i+1) begin : gen_plic_irq_id
     assign irq_id[i] = '0;
   end
 
   assign irq_plic_o = '0;
   assign plic_tl_d2h = '0;
 % endif
-% endif
-% endfor
 
-% for peripheral in peripherals.items():
-% if peripheral[0] in ("spi_host"):
-% if peripheral[1]['is_included'] in ("yes"):
+% if user_peripheral_domain.contains_peripheral('spi_host'):
   spi_host #(
       .reg_req_t(reg_pkg::reg_req_t),
       .reg_rsp_t(reg_pkg::reg_rsp_t)
@@ -346,7 +346,6 @@ module peripheral_subsystem
       .intr_spi_event_o(spi_intr_event_o)
   );
 % else:
-  assign peripheral_slv_rsp[core_v_mini_mcu_pkg::SPI_HOST_IDX] = '0;
   assign spi_sck_o = '0;
   assign spi_sck_en_o = '0;
   assign spi_csb_o = '0;
@@ -357,14 +356,8 @@ module peripheral_subsystem
   assign spi_rx_valid_o = '0;
   assign spi_tx_ready_o = '0;
 % endif
-% endif
-% endfor
 
-
-
-% for peripheral in peripherals.items():
-% if peripheral[0] in ("gpio"):
-% if peripheral[1]['is_included'] in ("yes"):
+% if user_peripheral_domain.contains_peripheral('gpio'):
   gpio #(
       .reg_req_t(reg_pkg::reg_req_t),
       .reg_rsp_t(reg_pkg::reg_rsp_t)
@@ -384,11 +377,9 @@ module peripheral_subsystem
   assign cio_gpio_o = '0;
   assign cio_gpio_en_o = '0;
   assign gpio_intr = '0;
-  assign peripheral_slv_rsp[core_v_mini_mcu_pkg::GPIO_IDX] = '0;
 % endif
-% endif
-% endfor
 
+% if user_peripheral_domain.contains_peripheral('i2c'):
   reg_to_tlul #(
       .req_t(reg_pkg::reg_req_t),
       .rsp_t(reg_pkg::reg_rsp_t),
@@ -406,9 +397,6 @@ module peripheral_subsystem
       .reg_rsp_o(peripheral_slv_rsp[core_v_mini_mcu_pkg::I2C_IDX])
   );
 
-% for peripheral in peripherals.items():
-% if peripheral[0] in ("i2c"):
-% if peripheral[1]['is_included'] in ("yes"):
   i2c i2c_i (
       .clk_i(clk_cg),
       .rst_ni,
@@ -460,9 +448,8 @@ module peripheral_subsystem
   assign i2c_intr_ack_stop = '0;
   assign i2c_intr_host_timeout = '0;
 % endif
-% endif
-% endfor
 
+% if user_peripheral_domain.contains_peripheral('rv_timer'):
   reg_to_tlul #(
       .req_t(reg_pkg::reg_req_t),
       .rsp_t(reg_pkg::reg_rsp_t),
@@ -480,9 +467,6 @@ module peripheral_subsystem
       .reg_rsp_o(peripheral_slv_rsp[core_v_mini_mcu_pkg::RV_TIMER_IDX])
   );
 
-% for peripheral in peripherals.items():
-% if peripheral[0] in ("rv_timer"):
-% if peripheral[1]['is_included'] in ("yes"):
   rv_timer rv_timer_2_3_i (
       .clk_i(clk_cg),
       .rst_ni,
@@ -496,12 +480,8 @@ module peripheral_subsystem
   assign rv_timer_2_intr_o = '0;
   assign rv_timer_3_intr_o = '0;
 % endif
-% endif
-% endfor
 
-% for peripheral in peripherals.items():
-% if peripheral[0] in ("spi2"):
-% if peripheral[1]['is_included'] in ("yes"):
+% if user_peripheral_domain.contains_peripheral('spi2'):
   spi_host #(
       .reg_req_t(reg_pkg::reg_req_t),
       .reg_rsp_t(reg_pkg::reg_rsp_t)
@@ -527,7 +507,6 @@ module peripheral_subsystem
       .intr_spi_event_o(spi2_intr_event)
   );
 % else:
-  assign peripheral_slv_rsp[core_v_mini_mcu_pkg::SPI2_IDX] = '0;
   assign spi2_sck_o = '0;
   assign spi2_sck_en_o = '0;
   assign spi2_csb_o = '0;
@@ -536,12 +515,8 @@ module peripheral_subsystem
   assign spi2_sd_en_o = '0;
   assign spi2_intr_event = '0;
 % endif
-% endif
-% endfor
 
-% for peripheral in peripherals.items():
-% if peripheral[0] in ("pdm2pcm"):
-% if peripheral[1]['is_included'] in ("yes"):
+% if user_peripheral_domain.contains_peripheral('pdm2pcm'):
   pdm2pcm #(
       .reg_req_t(reg_pkg::reg_req_t),
       .reg_rsp_t(reg_pkg::reg_rsp_t)
@@ -554,17 +529,12 @@ module peripheral_subsystem
       .pdm_clk_o(pdm2pcm_clk_o)
   );
 % else:
-  assign peripheral_slv_rsp[core_v_mini_mcu_pkg::PDM2PCM_IDX] = '0;
   assign pdm2pcm_clk_o = '0;
 % endif
-% endif
-% endfor
 
   assign pdm2pcm_clk_en_o = 1;
 
-% for peripheral in peripherals.items():
-% if peripheral[0] in ("i2s"):
-% if peripheral[1]['is_included'] in ("yes"):
+% if user_peripheral_domain.contains_peripheral('i2s'):
   i2s #(
       .reg_req_t(reg_pkg::reg_req_t),
       .reg_rsp_t(reg_pkg::reg_rsp_t)
@@ -587,7 +557,6 @@ module peripheral_subsystem
       .i2s_rx_valid_o(i2s_rx_valid_o)
   );
 % else:
-  assign peripheral_slv_rsp[core_v_mini_mcu_pkg::I2S_IDX] = '0;
 
   assign i2s_sck_oe_o     = 1'b0;
   assign i2s_sck_o        = 1'b0;
@@ -598,7 +567,63 @@ module peripheral_subsystem
   assign i2s_intr_event   = 1'b0;
   assign i2s_rx_valid_o   = 1'b0;
 % endif
+
+% if user_peripheral_domain.contains_peripheral('uart'):
+
+  reg_to_tlul #(
+      .req_t(reg_pkg::reg_req_t),
+      .rsp_t(reg_pkg::reg_rsp_t),
+      .tl_h2d_t(tlul_pkg::tl_h2d_t),
+      .tl_d2h_t(tlul_pkg::tl_d2h_t),
+      .tl_a_user_t(tlul_pkg::tl_a_user_t),
+      .tl_a_op_e(tlul_pkg::tl_a_op_e),
+      .TL_A_USER_DEFAULT(tlul_pkg::TL_A_USER_DEFAULT),
+      .PutFullData(tlul_pkg::PutFullData),
+      .Get(tlul_pkg::Get)
+  ) reg_to_tlul_uart_i (
+      .tl_o(uart_tl_h2d),
+      .tl_i(uart_tl_d2h),
+      .reg_req_i(peripheral_slv_req[core_v_mini_mcu_pkg::UART_IDX]),
+      .reg_rsp_o(peripheral_slv_rsp[core_v_mini_mcu_pkg::UART_IDX])
+  );
+
+  uart uart_i (
+      .clk_i(clk_cg),
+      .rst_ni,
+      .tl_i(uart_tl_h2d),
+      .tl_o(uart_tl_d2h),
+      .cio_rx_i(uart_rx_i),
+      .cio_tx_o(uart_tx_o),
+      .cio_tx_en_o(),
+      .intr_tx_watermark_o(uart_intr_tx_watermark),
+      .intr_rx_watermark_o(uart_intr_rx_watermark),
+      .intr_tx_empty_o(uart_intr_tx_empty),
+      .intr_rx_overflow_o(uart_intr_rx_overflow),
+      .intr_rx_frame_err_o(uart_intr_rx_frame_err),
+      .intr_rx_break_err_o(uart_intr_rx_break_err),
+      .intr_rx_timeout_o(uart_intr_rx_timeout),
+      .intr_rx_parity_err_o(uart_intr_rx_parity_err)
+  );
+
+% else:
+
+  assign uart_tl_d2h             = '0;
+  assign uart_intr_tx_watermark  = 1'b0;
+  assign uart_intr_rx_watermark  = 1'b0;
+  assign uart_intr_tx_empty      = 1'b0;
+  assign uart_intr_rx_overflow   = 1'b0;
+  assign uart_intr_rx_frame_err  = 1'b0;
+  assign uart_intr_rx_break_err  = 1'b0;
+  assign uart_intr_rx_timeout    = 1'b0;
+  assign uart_intr_rx_parity_err = 1'b0;
+  assign uart_tx_o               = 1'b0;
+
 % endif
-% endfor
+
+
+% if len(user_peripheral_domain.get_peripherals()) == 0:
+  // If no peripherals are selected, tie off the slave response
+  assign peripheral_slv_rsp = '0;
+% endif
 
 endmodule : peripheral_subsystem

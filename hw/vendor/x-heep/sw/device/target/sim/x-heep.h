@@ -12,8 +12,11 @@ extern "C" {
 #endif  // __cplusplus
 
 
-#define REFERENCE_CLOCK_Hz 100*1000*1000
-#define UART_BAUDRATE 256000
+#define REFERENCE_CLOCK_Hz (100*1000*1000) // 100 MHz for simulation
+#define UART_BAUDRATE (REFERENCE_CLOCK_Hz / 20) // close to maximum baud rate (/16)
+// Calculation formula: NCO = 16 * 2^nco_width * baud / fclk.
+// Note that this will be calculated at compile time, so no 64-bit operations will be performed in CPU.
+#define UART_NCO ((uint32_t)( (((uint64_t)UART_BAUDRATE * 16) << 16) / REFERENCE_CLOCK_Hz ))
 #define TARGET_SIM 1
 
 /**

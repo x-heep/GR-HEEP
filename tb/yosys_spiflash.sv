@@ -1,0 +1,1 @@
+../hw/vendor/x-heep/tb/yosys_spiflash.sv

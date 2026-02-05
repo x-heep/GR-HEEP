@@ -8,7 +8,7 @@
 sudo apt install pkg-config libftdi1-2
 ```
 
-You need at least gcc>10, so in case you do not have it:
+You need at least GCC>10, so in case you do not have it:
 
 ```
 sudo apt install gcc-10 g++-10
@@ -45,19 +45,13 @@ The remote bitbang server is simplemented in the folder ./hw/vendor/pulp_platfor
 To simulate your application with Verilator using the remote_bitbang server, you need to compile you system adding the `JTAG DPI` functions:
 
 ```
-make verilator-sim FUSESOC_PARAM="--JTAG_DPI=1"
-```
-
-then, go to your target system built folder
-
-```
-cd ./build/openhwgroup.org_systems_core-v-mini-mcu_0/sim-verilator
+make verilator-build FUSESOC_PARAM="--JTAG_DPI=1"
 ```
 
 and type to run your compiled software:
 
 ```
-./Vtestharness +firmware=../../../sw/build/main.hex +openOCD=true
+make verilator-run SIM_ARGS="+openOCD=true"
 ```
 
 ### Questasim
@@ -65,13 +59,13 @@ and type to run your compiled software:
 To simulate your application with Questasim using the remote_bitbang server, you need to compile you system adding the `JTAG DPI` functions:
 
 ```
-make questasim-sim FUSESOC_PARAM="--JTAG_DPI=1"
+make questasim-build FUSESOC_PARAM="--JTAG_DPI=1"
 ```
 
 then, go to your target system built folder
 
 ```
-cd ./build/openhwgroup.org_systems_core-v-mini-mcu_0/sim-modelsim/
+cd ./build/openhwgroup.org_systems_core-v-mini-mcu_<version>/sim-modelsim/
 ```
 
 and type to run your compiled software:
@@ -103,8 +97,14 @@ Check the waveform of the JTAG on Modelsim if you like.
 In a 3rd shell, conenct gdb as:
 
 ```
-$RISCV/bin/riscv32-unknown-elf-gdb ./sw/build/main.elf
+$RISCV_XHEEP/bin/riscv32-unknown-elf-gdb ./sw/build/main.elf
 ```
+
+In case gdb is started in Python mode (due to initialisation conditions set in the ~/.gdbinit) - then run the command as:
+```
+$RISCV_XHEEP/bin/riscv32-unknown-elf-gdb -nx ./sw/build/main.elf
+```
+
 
 Once `gdb` starts, do the following 3 commands:
 ```
@@ -255,7 +255,7 @@ openocd -f ./tb/core-v-mini-mcu-nexsys-hs2.cfg
 or with the EPFL Programmer using this command:
 
 ```
-openocd -f ./tb/core-v-mini-mcu-pynq-z2-esl-programmer.cfg
+openocd -f ./tb/core-v-mini-mcu-esl-programmer.cfg
 ```
 
 or with the EPFL Programmer also using this other command (**strongly recommended**):
@@ -293,3 +293,6 @@ ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6014", MODE="664", GROUP="plugdev"
 Otherwise for the EPFL Programmer, follow [ProgramFlash](./ProgramFlash.md).
 
 You may also need to run `sudo usermod -a -G plugdev yourusername` and restart the utility with `sudo udevadm control --reload`.
+Once OpenOCD is configured and connected for the FPGA, you have to open a new shell for gdb and follow the steps from the previous section as described for gdb.
+
+Please note, in case you are using FPGA, along with the HS2 cable, you'll also need CP210X UART to USB Adaptor so that you can connect it for viewing the output of UART via serial port in your PC.

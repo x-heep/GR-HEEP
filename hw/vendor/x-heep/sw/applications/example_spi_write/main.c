@@ -31,11 +31,6 @@
     #define PRINTF(...)
 #endif
 
-#if defined(TARGET_PYNQ_Z2) || defined(TARGET_ZCU104) || defined(TARGET_NEXYS_A7_100T)
-    #define USE_SPI_FLASH
-#endif
-
-
 // what to write in flash
 uint32_t flash_original_1024B[256] = {
     0x76543211, 0xfedcba99, 0x579a6f91, 0x657d5bef, 0x758ee420, 0x01234568, 0xfedbca97, 0x89abde00,
@@ -156,11 +151,7 @@ int main(int argc, char *argv[]) {
 
     // Pick the correct spi device based on simulation type
     spi_host_t* spi;
-    #ifndef USE_SPI_FLASH
-    spi = spi_host1;
-    #else
     spi = spi_flash;
-    #endif
 
     // Define status variable
     int32_t errors = 0;
@@ -172,10 +163,21 @@ int main(int argc, char *argv[]) {
     PRINTF("Testing simple write...\n");
     errors += test_write(flash_original_1024B, BYTES_TO_WRITE);
 
+    if (errors) {
+        PRINTF("test_write FAILED\n");
+        return EXIT_FAILURE;
+    }
+
 #ifndef ON_CHIP
     // Test simple write on flash_only data
     PRINTF("Testing simple write. on flash only data..\n");
     errors += test_write_flash_only(flash_original_1024B, BYTES_TO_WRITE);
+
+    if (errors) {
+        PRINTF("test_write_flash_only FAILED\n");
+        return EXIT_FAILURE;
+    }
+
 #endif
 
 
@@ -183,13 +185,28 @@ int main(int argc, char *argv[]) {
     PRINTF("Testing simple write with DMA...\n");
     errors += test_write_dma(flash_original_1024B, BYTES_TO_WRITE);
 
+    if (errors) {
+        PRINTF("test_write_dma FAILED\n");
+        return EXIT_FAILURE;
+    }
+
     // Test quad write
     PRINTF("Testing quad write...\n");
     errors += test_write_quad(flash_original_1024B, BYTES_TO_WRITE);
 
+    if (errors) {
+        PRINTF("test_write_quad FAILED\n");
+        return EXIT_FAILURE;
+    }
+
     // Test quad write with DMA
     PRINTF("Testing quad write with DMA...\n");
     errors += test_write_quad_dma(flash_original_1024B, BYTES_TO_WRITE);
+
+    if (errors) {
+        PRINTF("test_write_quad_dma FAILED\n");
+        return EXIT_FAILURE;
+    }
 
     PRINTF("\n--------TEST FINISHED--------\n");
     if (errors == 0) {
@@ -334,13 +351,8 @@ uint32_t check_result(uint8_t *test_buffer, uint32_t len) {
         if (test_buffer[i] != flash_read_data_char[i]) {
             PRINTF("Error at position %d: expected %x, got %x\n", i, test_buffer[i], flash_read_data_char[i]);
             errors++;
+            break;
         }
-    }
-
-    if (errors == 0) {
-        PRINTF("success!\n");
-    } else {
-        PRINTF("failure, %d errors!\n", errors);
     }
 
     return errors;
@@ -348,7 +360,7 @@ uint32_t check_result(uint8_t *test_buffer, uint32_t len) {
 
 // Erase the memory only if FPGA is used
 void erase_memory(uint32_t addr) {
-    #ifdef USE_SPI_FLASH
+    #ifndef TARGET_SIM
     w25q128jw_4k_erase(addr);
     #endif
 }

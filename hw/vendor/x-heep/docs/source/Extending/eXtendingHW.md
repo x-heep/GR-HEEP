@@ -29,7 +29,7 @@ The following is an example repository folder structure.
 
 ## Adding a CV-X-IF coprocessor
 
-We recomend using the [vendor](https://opentitan.org/book/util/doc/vendor.html) tool as used inside X-HEEP, although you could modify it to use git submodules.
+We recomend using the [vendor](https://opentitan.org/book/util/doc/vendor.html) tool as [used inside X-HEEP](../GettingStarted/UnderstandingTools.md#vendor), although you could modify it to use git submodules.
 
 - Create a new top-level repository (`BASE`) and vendorize both your `CV-X-IF` compliant coprocessor and X-HEEP. For X-HEEP, create inside your top-level repository's base directory (`BASE`) a `hw/vendor` directory containing a file named `esl_epfl_x_heep.vendor.hjson`:
 
@@ -42,28 +42,29 @@ We recomend using the [vendor](https://opentitan.org/book/util/doc/vendor.html) 
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
 {
-  name: "esl_epfl_x_heep",
-  target_dir: "esl_epfl_x_heep",
+  name: "esl_epfl_x_heep"
+  target_dir: "esl_epfl_x_heep"
 
   upstream: {
-    url: "https://github.com/esl-epfl/x-heep.git",
-    rev: "main",
-  },
+    url: "https://github.com/x-heep/x-heep.git"
+    rev: "main"
+  }
 
-  patch_dir: "patches/esl_epfl_x_heep",
+  patch_dir: "patches/esl_epfl_x_heep"
 
   exclude_from_upstream: [
-    ".github",
-    "ci",
+    ".github"
+    "ci"
   ]
 }
 
 ```
 </details><br>
 
-The `main` branch can be replaced with an specific commit. This is the recommended operation to prevent accidental updates to an incompatible version.
+The `main` branch in `rev:` can be replaced with a specific commit. This is the recommended operation
+to prevent accidental updates to an incompatible repository commit.
 
-In a directory `BASE/util` add the [vendor python script](https://github.com/lowRISC/opentitan/blob/master/util/vendor.py).
+In a directory `BASE/util` add the [vendor Python script](https://github.com/lowRISC/opentitan/blob/master/util/vendor.py).
 
 To vendorize or revendorize the X-HEEP repository inside a `BASE/hw/vendor/esl_epfl_x_heep/` folder run the following command from your `BASE`.
 ```
@@ -133,10 +134,6 @@ To add this new top-level module to the simulation/synthesis flow you can extend
         file_type: user
 
     parameters:
-    COREV_PULP:
-        datatype: int
-        paramtype: vlogparam
-        default: 0
     JTAG_DPI:
         datatype: int
         paramtype: vlogparam
@@ -182,7 +179,6 @@ To add this new top-level module to the simulation/synthesis flow you can extend
             - tool_modelsim? (pre_build_remote_bitbang)
             - tool_modelsim? (pre_patch_modelsim_Makefile) # this is required by Questa 2020 on
         parameters:
-        - COREV_PULP
         - JTAG_DPI
         tools:
         modelsim:

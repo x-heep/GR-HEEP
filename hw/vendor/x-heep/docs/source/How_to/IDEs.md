@@ -4,7 +4,7 @@ For FW development, `X-HEEP` can be used together with different Integrated Deve
 
 ## SES installation
 
-The platform was only tested under Linux and version 7.32 of the Embedded Studio for RISC-V. Please, go to the Segger [download center](https://www.segger.com/downloads/embedded-studio/) to get that version. It is assumed that you have already installed the RISC-V compiler and openOCD. If the latter is not true, check the main [Readme](https://github.com/esl-epfl/x-heep) please.
+The platform was only tested under Linux and version 7.32 of the Embedded Studio for RISC-V. Please, go to the Segger [download center](https://www.segger.com/downloads/embedded-studio/) to get that version. It is assumed that you have already installed the RISC-V compiler and openOCD. If the latter is not true, check the main [Readme](https://github.com/x-heep/x-heep) please.
 
 ## Configuration
 
@@ -18,7 +18,7 @@ Please, substitute that path to your current path where the RISC-V compiler was 
 
 For the openOCS path, **line 88**:
 ```
-gdb_server_command_line="/home/< user >/tools/openocd/bin/openocd -f &quot;$(ProjectDir)/../../tb/core-v-mini-mcu-pynq-z2-esl-programmer.cfg&quot;"
+gdb_server_command_line="/home/< user >/tools/openocd/bin/openocd -f &quot;$(ProjectDir)/../../tb/core-v-mini-mcu-esl-programmer.cfg&quot;"
 ```
 Please, substitute that path to your current path where openOCD was installed. Do not forget to target the `openocd` file inside the `bin` installation folder of openocd.
 

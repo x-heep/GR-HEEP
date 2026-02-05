@@ -14,9 +14,9 @@
 
 # Author: Jose Miranda (jose.mirandacalero@epfl.ch)
 
-# set(RISCV  /home/$ENV{USER}/tools/riscv)
-set(RISCV_GITHUB_GCC_COMPILER  $ENV{RISCV}/bin/$ENV{COMPILER_PREFIX}elf-gcc)
-set(RISCV_GITHUB_CLANG_COMPILER  $ENV{RISCV}/bin/clang)
+# set(RISCV_XHEEP  /home/$ENV{USER}/tools/riscv)
+set(RISCV_GITHUB_GCC_COMPILER  $ENV{RISCV_XHEEP}/bin/$ENV{COMPILER_PREFIX}elf-gcc)
+set(RISCV_GITHUB_CLANG_COMPILER  $ENV{RISCV_XHEEP}/bin/clang)
 #message("RISC-V GCC cross-compiler is in : ${RISCV_GCC_COMPILER}") 
 
 if (EXISTS ${RISCV_GITHUB_GCC_COMPILER})
@@ -45,7 +45,7 @@ get_filename_component(RISCV_TOOLCHAIN_BIN_EXT ${RISCV_GCC_COMPILER} EXT)
 
 STRING(REGEX REPLACE "\-gcc$" "-" GCC_CROSS_COMPILE ${RISCV_GCC_COMPILER})
 if ($ENV{COMPILER} MATCHES "clang")
-     STRING(REGEX REPLACE "clang" "" CLANG_CROSS_COMPILE ${RISCV_CLANG_COMPILER})
+     STRING(REGEX REPLACE "clang$" "" CLANG_CROSS_COMPILE ${RISCV_CLANG_COMPILER})
 endif()
 #message( "RISC-V Cross Compile: ${CROSS_COMPILE}" )
 
@@ -99,10 +99,11 @@ endif()
 # Set the common build flags
 
 # Set the CMAKE C flags (which should also be used by the assembler!
+# specify the C standard
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g" )
-set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=${CMAKE_SYSTEM_PROCESSOR}" )
+set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=${CMAKE_SYSTEM_PROCESSOR} ${COMPILER_FLAGS}" )
 if ($ENV{COMPILER} MATCHES "clang")
-     set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-command-line-argument --target=riscv32 --gcc-toolchain=$ENV{RISCV} --sysroot=$ENV{RISCV}/$ENV{COMPILER_PREFIX}elf" )
+     set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-unused-command-line-argument --target=riscv32 --gcc-toolchain=$ENV{RISCV_XHEEP} --sysroot=$ENV{RISCV_XHEEP}/$ENV{COMPILER_PREFIX}elf" )
 endif()
 
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS}" CACHE STRING "" )
@@ -113,4 +114,3 @@ set( CMAKE_LINKER ${RISCV_GCC_COMPILER})  # We always link with GCC
 
 # Set by deafult Linker flags if needed
 #set( CMAKE_EXE_LINKER_FLAGS   "${CMAKE_EXE_LINKER_FLAGS}  -march=${CMAKE_SYSTEM_PROCESSOR}    -nostartfiles   " )
-
