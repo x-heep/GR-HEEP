@@ -55,12 +55,11 @@ def get_mcu_gen_templates(repo_root: pathlib.Path) -> List[pathlib.Path]:
     return [repo_root / path for path in output.split()]
 
 
-def mcu_gen(repo_root: pathlib.Path, pads_cfg: pathlib.Path, outdir: pathlib.Path):
+def mcu_gen(repo_root: pathlib.Path, outdir: pathlib.Path):
     """
     Run the mcu-gen process. Copies generated files to the specified output directory.
 
     :param repo_root: Root of the repository.
-    :param pads_cfg: Path to the pads configuration file.
     :param outdir: Output directory to copy generated files.
     """
     build_dir = repo_root / "build"
@@ -72,7 +71,7 @@ def mcu_gen(repo_root: pathlib.Path, pads_cfg: pathlib.Path, outdir: pathlib.Pat
         [
             "make",
             "mcu-gen",
-            f"PADS_CFG={pads_cfg}",
+            "X_HEEP_CFG=configs/ci.hjson",
         ],
         cwd=repo_root,
     )
@@ -105,49 +104,25 @@ def list_diff_files(left: pathlib.Path, right: pathlib.Path) -> List[str]:
     return walk(filecmp.dircmp(left, right), pathlib.Path("."))
 
 
-def get_main_worktree_path(repo_root: pathlib.Path):
+def get_main_commit(repo_root: pathlib.Path) -> str:
     """
-    Find the existing git worktree path for branch 'main'.
+    Get the commit hash of the main branch.
     """
-    output = subprocess.check_output(
-        ["git", "worktree", "list", "--porcelain"],
+    return subprocess.check_output(
+        ["git", "rev-parse", "refs/heads/main"],
         cwd=repo_root,
         text=True,
-    )
-    lines = output.splitlines()
-    current_path = None
-    for line in lines:
-        if line.startswith("worktree "):
-            current_path = pathlib.Path(line.split(" ", 1)[1])
-        elif line.startswith("branch refs/heads/main") and current_path:
-            return current_path
-    return None
+    ).strip()
 
 
 def main():
     with tempfile.TemporaryDirectory(prefix="mcu-gen-main-") as tmp:
         tmp = pathlib.Path(tmp)
 
-        print("Creating worktree for main...")
-        try:
-            run(["git", "worktree", "add", tmp, "main"])
-        except subprocess.CalledProcessError:
-            main_wt = get_main_worktree_path(REPO_ROOT)
-            reply = (
-                input(
-                    f"Git worktree add failed. Delete existing git worktree main ({main_wt}) and continue? [y/N] "
-                )
-                .strip()
-                .lower()
-            )
-            if reply not in {"y", "yes"}:
-                print("Aborting.")
-                return
-            if not main_wt:
-                print("Could not find existing main worktree. Aborting.")
-                return
-            run(["git", "worktree", "remove", "--force", main_wt], check=False)
-            run(["git", "worktree", "add", tmp, "main"])
+        main_commit = get_main_commit(REPO_ROOT)
+
+        print(f"Creating detached worktree for main ({main_commit[:8]})...")
+        run(["git", "worktree", "add", "--detach", tmp, main_commit])
 
         out_main = TEST_X_HEEP_GEN_DIR / "_mcu_gen_main"
         out_curr = TEST_X_HEEP_GEN_DIR / "_mcu_gen_current"
@@ -158,14 +133,15 @@ def main():
         print("\n=== Generating on main ===")
         mcu_gen(
             repo_root=tmp,
-            pads_cfg=tmp / "configs/pad_cfg.hjson",
             outdir=out_main,
         )
+
+        print("\nCleaning up worktree...")
+        run(["git", "worktree", "remove", "--force", tmp])
 
         print("\n=== Generating on current branch ===")
         mcu_gen(
             repo_root=REPO_ROOT,
-            pads_cfg=REPO_ROOT / "configs/pad_cfg.py",
             outdir=out_curr,
         )
 
@@ -179,8 +155,10 @@ def main():
             for path in diff_files:
                 print(f" - {path}")
 
-        print("\nCleaning up worktree...")
-        run(["git", "worktree", "remove", "--force", tmp])
+        print(
+            "\nRemember to make sure that your main branch is up to date with the latest changes from the remote repository before running this script."
+            "\nYou can update your main branch with 'git fetch origin main' or 'git fetch upstream main' depending on your remote setup."
+        )
 
 
 if __name__ == "__main__":
