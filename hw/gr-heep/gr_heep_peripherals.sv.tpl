@@ -20,34 +20,30 @@
 
 module gr_heep_peripherals (
     input logic clk_i,
-% if (gr_heep["xbar_nmasters"] == 0 and gr_heep["xbar_nslaves"] == 0 and gr_heep["periph_nslaves"] == 0 and gr_heep["ext_interrupts"] == 0):
-    input logic rst_ni
-% else:
-    input logic rst_ni,
-% endif
+    input logic rst_ni${'' if gr_heep["xbar_nmasters"] == 0 and gr_heep["xbar_nslaves"] == 0 and gr_heep["periph_nslaves"] == 0 and gr_heep["ext_interrupts"] == 0 else ','}
 
-% if (gr_heep["xbar_nmasters"] > 0):
-    // External peripherals master ports
-    output obi_pkg::obi_req_t  [gr_heep_pkg::ExtXbarNMasterRnd-1:0] gr_heep_master_req_o,
-    input obi_pkg::obi_resp_t [gr_heep_pkg::ExtXbarNMasterRnd-1:0] gr_heep_master_resp_i${'' if (gr_heep["xbar_nslaves"] + gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) else ','}
-% endif
+    % if (gr_heep["xbar_nmasters"] > 0):
+        // External peripherals master ports
+        output obi_pkg::obi_req_t  [gr_heep_pkg::ExtXbarNMasterRnd-1:0] gr_heep_master_req_o,
+        input obi_pkg::obi_resp_t [gr_heep_pkg::ExtXbarNMasterRnd-1:0] gr_heep_master_resp_i${'' if (gr_heep["xbar_nslaves"] + gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) else ','}
+    % endif
 
-% if (gr_heep["xbar_nslaves"] > 0):
-    // External peripherals slave ports
-    input obi_pkg::obi_req_t  [gr_heep_pkg::ExtXbarNSlaveRnd-1:0] gr_heep_slave_req_i,
-    output obi_pkg::obi_resp_t [gr_heep_pkg::ExtXbarNSlaveRnd-1:0] gr_heep_slave_resp_o${'' if (gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) else ','}
-% endif
+    % if (gr_heep["xbar_nslaves"] > 0):
+        // External peripherals slave ports
+        input obi_pkg::obi_req_t  [gr_heep_pkg::ExtXbarNSlaveRnd-1:0] gr_heep_slave_req_i,
+        output obi_pkg::obi_resp_t [gr_heep_pkg::ExtXbarNSlaveRnd-1:0] gr_heep_slave_resp_o${'' if (gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) else ','}
+    % endif
 
-% if (gr_heep["periph_nslaves"] > 0):
-    // External peripherals configuration ports
-    input reg_pkg::reg_req_t [gr_heep_pkg::ExtPeriphNSlaveRnd-1:0] gr_heep_peripheral_req_i,
-    output reg_pkg::reg_rsp_t [gr_heep_pkg::ExtPeriphNSlaveRnd-1:0] gr_heep_peripheral_rsp_o${'' if (gr_heep["ext_interrupts"] == 0) else ','}
-% endif
+    % if (gr_heep["periph_nslaves"] > 0):
+        // External peripherals configuration ports
+        input reg_pkg::reg_req_t [gr_heep_pkg::ExtPeriphNSlaveRnd-1:0] gr_heep_peripheral_req_i,
+        output reg_pkg::reg_rsp_t [gr_heep_pkg::ExtPeriphNSlaveRnd-1:0] gr_heep_peripheral_rsp_o${'' if (gr_heep["ext_interrupts"] == 0) else ','}
+    % endif
 
-% if (gr_heep["ext_interrupts"] > 0):
-    // External peripherals interrupt ports
-    output logic [gr_heep_pkg::ExtInterrupts-1:0] gr_heep_peripheral_int_o
-%endif
+    % if (gr_heep["ext_interrupts"] > 0):
+        // External peripherals interrupt ports
+        output logic [gr_heep_pkg::ExtInterrupts-1:0] gr_heep_peripheral_int_o
+    %endif
 );
 
   // Instantiate here the external peripherals

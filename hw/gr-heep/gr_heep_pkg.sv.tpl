@@ -46,8 +46,7 @@ package gr_heep_pkg;
 
 % if (gr_heep["xbar_nslaves"] > 0):
 
-% for a_slave in gr_heep["slaves"]:
-
+  % for a_slave in gr_heep["slaves"]:
     // Memory map
     // ----------
     // ${a_slave['name']}
@@ -55,18 +54,18 @@ package gr_heep_pkg;
     localparam logic [31:0] ${a_slave['name']}StartAddr = EXT_SLAVE_START_ADDRESS + 32'h${a_slave['offset']};
     localparam logic [31:0] ${a_slave['name']}Size = 32'h${a_slave['size']};
     localparam logic [31:0] ${a_slave['name']}EndAddr = ${a_slave['name']}StartAddr + 32'h${a_slave['size']};
-% endfor
+  % endfor
 
-    // External slaves address map
-    localparam addr_map_rule_t [ExtXbarNSlave-1:0] ExtSlaveAddrRules = '{
-% for slave_idx, a_slave in enumerate(gr_heep["slaves"]):
-% if (slave_idx < len(gr_heep["slaves"])-1):
-      '{idx: ${a_slave['name']}Idx, start_addr: ${a_slave['name']}StartAddr, end_addr: ${a_slave['name']}EndAddr},
-% else:
-      '{idx: ${a_slave['name']}Idx, start_addr: ${a_slave['name']}StartAddr, end_addr: ${a_slave['name']}EndAddr}
-%endif
-%endfor
-    };
+  // External slaves address map
+  localparam addr_map_rule_t [ExtXbarNSlave-1:0] ExtSlaveAddrRules = '{
+    % for slave_idx, a_slave in enumerate(gr_heep["slaves"]):
+      % if (slave_idx < len(gr_heep["slaves"])-1):
+        '{idx: ${a_slave['name']}Idx, start_addr: ${a_slave['name']}StartAddr, end_addr: ${a_slave['name']}EndAddr},
+      % else:
+        '{idx: ${a_slave['name']}Idx, start_addr: ${a_slave['name']}StartAddr, end_addr: ${a_slave['name']}EndAddr}
+      %endif
+    %endfor
+  };
 
   localparam int unsigned ExtSlaveDefaultIdx = 32'd0;
 
@@ -83,8 +82,7 @@ package gr_heep_pkg;
 
 % if (gr_heep["periph_nslaves"] > 0):
 
-% for a_slave in gr_heep["peripherals"]:
-
+  % for a_slave in gr_heep["peripherals"]:
     // Memory map
     // ----------
     // ${a_slave['name']}
@@ -92,18 +90,18 @@ package gr_heep_pkg;
     localparam logic [31:0] ${a_slave['name']}PeriphStartAddr = EXT_PERIPHERAL_START_ADDRESS + 32'h${a_slave['offset']};
     localparam logic [31:0] ${a_slave['name']}PeriphSize = 32'h${a_slave['size']};
     localparam logic [31:0] ${a_slave['name']}PeriphEndAddr = ${a_slave['name']}PeriphStartAddr + 32'h${a_slave['size']};
-% endfor
+  % endfor
     
-        // External peripherals address map
-        localparam addr_map_rule_t [ExtPeriphNSlave-1:0] ExtPeriphAddrRules = '{
-% for slave_idx, a_slave in enumerate(gr_heep["peripherals"]):
-% if (slave_idx < len(gr_heep["peripherals"])-1):
+    // External peripherals address map
+    localparam addr_map_rule_t [ExtPeriphNSlave-1:0] ExtPeriphAddrRules = '{
+      % for slave_idx, a_slave in enumerate(gr_heep["peripherals"]):
+        % if (slave_idx < len(gr_heep["peripherals"])-1):
           '{idx: ${a_slave['name']}PeriphIdx, start_addr: ${a_slave['name']}PeriphStartAddr, end_addr: ${a_slave['name']}PeriphEndAddr},
-% else:
-            '{idx: ${a_slave['name']}PeriphIdx, start_addr: ${a_slave['name']}PeriphStartAddr, end_addr: ${a_slave['name']}PeriphEndAddr}
-%endif
-%endfor
-        };
+        % else:
+          '{idx: ${a_slave['name']}PeriphIdx, start_addr: ${a_slave['name']}PeriphStartAddr, end_addr: ${a_slave['name']}PeriphEndAddr}
+        %endif
+      %endfor
+    };
 
   localparam int unsigned ExtPeriphDefaultIdx = 32'd0;
 
