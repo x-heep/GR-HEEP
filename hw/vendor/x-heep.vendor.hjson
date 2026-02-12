@@ -15,5 +15,6 @@
 
   exclude_from_upstream: [
     ".github"
+    "hw/core-v-mini-mcu/core_v_mini_mcu.sv"
   ]
 }
