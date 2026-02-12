@@ -139,7 +139,6 @@ def config() -> PadRing:
             ["spi2_sd_0", "gpio_26"],
             ["spi2_sd_1", "gpio_27"],
             ["spi2_sd_2", "gpio_28"],
-            ["spi2_sd_2", "gpio_28"],
             ["spi2_sd_3", "gpio_29"],
             ["i2c_scl", "gpio_31"],
             ["i2c_sda", "gpio_30"],
@@ -160,7 +159,7 @@ def config() -> PadRing:
 
     padring_attributes = {
         "bits": "7:0",
-        "resval": 0,
+        "resval": 0x0,
     }
 
     padring = PadRing(

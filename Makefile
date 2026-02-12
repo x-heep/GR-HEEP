@@ -34,7 +34,7 @@ TARGET ?= asic
 PYTHON_X_HEEP_CFG   ?= $(ROOT_DIR)/config/mcu-gen-config.py
 X_HEEP_CFG  		?= $(ROOT_DIR)/config/mcu-gen-config.hjson
 PADS_CFG_ASIC		?= $(ROOT_DIR)/config/gr-heep_pad_cfg.py
-PADS_CFG_FPGA		?= $(ROOT_DIR)/config/gr-heep_fpga_pad_cfg.py
+PADS_CFG_FPGA		?= $(ROOT_DIR)/config/gr-heep_pad_cfg.py  # Currently the same as ASIC, but can be different if needed in the future
 EXTERNAL_DOMAINS	:= 0 # TO BE UPDATED according to the number of external domains. FIXME: move to mcu-gen
 
 ifeq ($(TARGET),asic)
