@@ -33,9 +33,8 @@ TARGET ?= asic
 # X-HEEP mcu-gen configuration
 PYTHON_X_HEEP_CFG   ?= $(ROOT_DIR)/config/mcu-gen-config.py
 X_HEEP_CFG  		?= $(ROOT_DIR)/config/mcu-gen-config.hjson
-PADS_CFG_ASIC		?= $(ROOT_DIR)/config/gr-heep-pads.hjson
-PADS_CFG_FPGA		?= $(ROOT_DIR)/config/gr-heep-pads-fpga.hjson
-XHEEP_CONFIG_CACHE  := $(BUILD_DIR)/xheep_config_cache.pickle
+PADS_CFG_ASIC		?= $(ROOT_DIR)/config/gr-heep_pad_cfg.py
+PADS_CFG_FPGA		?= $(ROOT_DIR)/config/gr-heep_fpga_pad_cfg.py
 EXTERNAL_DOMAINS	:= 0 # TO BE UPDATED according to the number of external domains. FIXME: move to mcu-gen
 
 ifeq ($(TARGET),asic)
@@ -51,6 +50,7 @@ RTL_FILES := $(wildcard hw/gr-heep/*.sv)
 # GR-HEEP templated files
 # Collects all .tpl files in the project excluding certain directories
 GR_HEEP_GEN_TPLS := $(shell find . \( -path './hw/vendor' -o -path './hw/fpga' -o -path './sw/device' -o -path './sw/linker' \) -prune -o -name '*.tpl' -print)
+EXTERNAL_MCU_GEN_TEMPLATES = $(addprefix $(HEEP_REL_PATH)/,$(GR_HEEP_GEN_TPLS))
 
 # Software
 PROJECT := hello_world
@@ -71,21 +71,15 @@ verible:
 
 ## Generate X-HEEP MCU files
 .PHONY: mcu-gen
-mcu-gen: $(X_HEEP_CFG) $(PYTHON_X_HEEP_CFG) $(PADS_CFG) | $(BUILD_DIR)/
+mcu-gen: | $(BUILD_DIR)/
+	@echo "### Building X-HEEP MCU for '$(TARGET)'..."
 	$(MAKE) -f $(XHEEP_MAKE) mcu-gen \
-		XHEEP_CONFIG_CACHE=$(HEEP_REL_PATH)/$(XHEEP_CONFIG_CACHE) \
 		X_HEEP_CFG=$(X_HEEP_CFG) \
 		PYTHON_X_HEEP_CFG=$(PYTHON_X_HEEP_CFG) \
 		PADS_CFG=$(PADS_CFG) \
-		EXTERNAL_DOMAINS=$(EXTERNAL_DOMAINS)
-
-## Generate GR-HEEP files
-.PHONY: gr-heep-gen
-gr-heep-gen: $(GR_HEEP_GEN_CFG) $(GR_HEEP_GEN_TPLS) $(X_HEEP_DIR)/util/mcu_gen.py mcu-gen
-	$(PYTHON) $(X_HEEP_DIR)/util/mcu_gen.py \
-		--cached_path $(XHEEP_CONFIG_CACHE) --cached \
-		--outtpl "$(GR_HEEP_GEN_TPLS)"
-	$(MAKE) verible
+		EXTERNAL_DOMAINS=$(EXTERNAL_DOMAINS) \
+		EXTERNAL_MCU_GEN_TEMPLATES="$(EXTERNAL_MCU_GEN_TEMPLATES)"
+	@echo "✅ DONE! X-HEEP MCU and GR-HEEP generated successfully"
 
 ## @section Verilator
 
