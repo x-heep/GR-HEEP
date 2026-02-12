@@ -84,6 +84,13 @@ module peripheral_subsystem
     input  logic i2s_sd_i,
     output logic i2s_rx_valid_o,
 
+    % if user_peripheral_domain.contains_peripheral('serial_link'):
+      //Serial Link
+      input  logic [serial_link_single_channel_reg_pkg::NumChannels-1:0]    ddr_rcv_clk_i,  
+      output logic [serial_link_single_channel_reg_pkg::NumChannels-1:0]    ddr_rcv_clk_o,
+      input  logic [serial_link_single_channel_reg_pkg::NumChannels-1:0][serial_link_minimum_axi_pkg::NumLanes-1:0] ddr_i,
+      output logic [serial_link_single_channel_reg_pkg::NumChannels-1:0][serial_link_minimum_axi_pkg::NumLanes-1:0] ddr_o,
+    %endif
     // PDM2PCM Interface
     output logic pdm2pcm_clk_o,
     output logic pdm2pcm_clk_en_o,
@@ -625,6 +632,30 @@ module peripheral_subsystem
   assign uart_tx_o               = 1'b0;
 
 % endif
+
+% if user_peripheral_domain.contains_peripheral('serial_link'):
+  serial_link_xheep_wrapper #(
+    .MaxClkDiv(32),
+    .AddrWidth(32),
+    .DataWidth(32)
+  ) serial_link_xheep_wrapper_i (
+    .clk_i(clk_i),
+    .rst_ni(rst_ni),
+    .clk_reg_i(clk_i),       
+    .rst_reg_ni(rst_ni),      
+    .testmode_i('0),
+    .writer_req_i(peripheral_slv_req[core_v_mini_mcu_pkg::SERIAL_LINK_IDX]),
+    .writer_rsp_i(peripheral_slv_rsp[core_v_mini_mcu_pkg::SERIAL_LINK_IDX]),
+    .reader_req_i(peripheral_slv_req[core_v_mini_mcu_pkg::SERIAL_LINK_RECEIVER_FIFO_IDX]),
+    .reader_resp_o(peripheral_slv_rsp[core_v_mini_mcu_pkg::SERIAL_LINK_RECEIVER_FIFO_IDX]),
+    .cfg_req_i(peripheral_slv_req[core_v_mini_mcu_pkg::SERIAL_LINK_REG_IDX]),
+    .cfg_rsp_o(peripheral_slv_rsp[core_v_mini_mcu_pkg::SERIAL_LINK_REG_IDX]),
+    .ddr_rcv_clk_i,         
+    .ddr_i,                   
+    .ddr_rcv_clk_o,          
+    .ddr_o                   
+  );
+%endif
 
 % if len(user_peripheral_domain.get_peripherals()) == 0:
   // If no peripherals are selected, tie off the slave response

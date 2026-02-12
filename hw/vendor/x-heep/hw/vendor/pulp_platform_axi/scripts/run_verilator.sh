@@ -9,6 +9,12 @@
 # this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 # CONDITIONS OF ANY KIND, either express or implied. See the License for the
 # specific language governing permissions and limitations under the License.
+#
+# Authors:
+# - Fabian Schuiki <fschuiki@iis.ee.ethz.ch>
+# - Florian Zaruba <zarubaf@iis.ee.ethz.ch>
+# - Andreas Kurth <akurth@iis.ee.ethz.ch>
+# - Thomas Benz <tbenz@iis.ee.ethz.ch>
 
 set -e
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -20,4 +26,4 @@ bender script verilator -t synthesis -t synth_test > ./verilator.f
 VERILATOR_FLAGS=()
 VERILATOR_FLAGS+=(-Wno-fatal)
 
-$VERILATOR --top-module axi_synth_bench --lint-only -f verilator.f ${VERILATOR_FLAGS[@]}
+$VERILATOR --top-module axi_synth_bench --lint-only --timing -f verilator.f ${VERILATOR_FLAGS[@]}

@@ -8,11 +8,12 @@ import UPF::*;
 
 <%
   cpu = xheep.cpu()
+  user_peripheral_domain = xheep.get_user_peripheral_domain()
+  xif = xheep.xif()
+  th  = xheep.get_extension("testharness")
 %>
 
 module testharness #(
-    parameter bit FPU_SS_ZFINX                = 1,
-    parameter bit QUADRILATERO                = 0,
     parameter bit JTAG_DPI                    = 0,
     parameter bit USE_EXTERNAL_DEVICE_EXAMPLE = 1,
     parameter     CLK_FREQUENCY               = 'd100_000  //KHz
@@ -72,6 +73,15 @@ module testharness #(
 
   localparam EXT_DOMAINS_RND = core_v_mini_mcu_pkg::EXTERNAL_DOMAINS == 0 ? 1 : core_v_mini_mcu_pkg::EXTERNAL_DOMAINS;
   localparam NEXT_INT_RND = core_v_mini_mcu_pkg::NEXT_INT == 0 ? 1 : core_v_mini_mcu_pkg::NEXT_INT;
+
+  // CV-X-IF coprocessors configuration
+% if xheep.is_extension_defined("testharness"):
+  localparam bit FPU_SS_ZFINX = 1'b${th["FPU_SS_ZFINX"]};
+  localparam bit QUADRILATERO = 1'b${th["QUADRILATERO"]};
+% else:
+  localparam bit FPU_SS_ZFINX = 1'b0;
+  localparam bit QUADRILATERO = 1'b0;
+% endif
 
   // Internal signals
   // ----------------
@@ -157,6 +167,12 @@ module testharness #(
   fifo_req_t [core_v_mini_mcu_pkg::DMA_CH_NUM-1:0] hw_fifo_req;
   fifo_resp_t [core_v_mini_mcu_pkg::DMA_CH_NUM-1:0] hw_fifo_resp;
 
+  % if user_peripheral_domain.contains_peripheral('serial_link'):
+  logic [serial_link_single_channel_reg_pkg::NumChannels-1:0][serial_link_minimum_axi_pkg::NumLanes-1:0] ddr_i_xheep; 
+  logic [serial_link_single_channel_reg_pkg::NumChannels-1:0][serial_link_minimum_axi_pkg::NumLanes-1:0] ddr_o_xheep;
+  logic [serial_link_single_channel_reg_pkg::NumChannels-1:0] clk_sl_int2ext;
+  logic [serial_link_single_channel_reg_pkg::NumChannels-1:0] clk_sl_ext2int;
+  %endif
   reg_pkg::reg_req_t [testharness_pkg::EXT_NPERIPHERALS-1:0] ext_periph_slv_req;
   reg_pkg::reg_rsp_t [testharness_pkg::EXT_NPERIPHERALS-1:0] ext_periph_slv_rsp;
 
@@ -176,15 +192,19 @@ module testharness #(
   logic [EXT_DOMAINS_RND-1:0] external_ram_banks_set_retentive_n;
   logic [EXT_DOMAINS_RND-1:0] external_subsystem_clkgate_en_n;
 
-  // eXtension Interface
+  // CORE-V eXtension Interface (CV-X-IF)
+% if xif != None:
   if_xif #(
-      .X_NUM_RS(fpu_ss_pkg::X_NUM_RS),
-      .X_ID_WIDTH(fpu_ss_pkg::X_ID_WIDTH),
-      .X_MEM_WIDTH(fpu_ss_pkg::X_MEM_WIDTH),
-      .X_RFR_WIDTH(fpu_ss_pkg::X_RFR_WIDTH),
-      .X_RFW_WIDTH(fpu_ss_pkg::X_RFW_WIDTH),
-      .X_MISA(fpu_ss_pkg::X_MISA)
+    .X_NUM_RS    (${xif.x_num_rs if xif != None else "unsigned'(2)"}),
+    .X_ID_WIDTH  (${xif.x_id_width if xif != None else "unsigned'(4)"}),
+    .X_MEM_WIDTH (${xif.x_mem_width if xif != None else "unsigned'(32)"}),
+    .X_RFR_WIDTH (${xif.x_rfr_width if xif != None else "unsigned'(32)"}),
+    .X_RFW_WIDTH (${xif.x_rfw_width if xif != None else "unsigned'(32)"}),
+    .X_MISA      (${xif.x_misa if xif != None else "32'h0"})
   ) ext_if ();
+% else:
+  if_xif ext_if (); // unused
+% endif
 
   // External SPC interface signals
   reg_req_t [AO_SPC_NUM_RND:0] ext_ao_peripheral_req;
@@ -346,6 +366,13 @@ module testharness #(
       .intr_ext_peripheral_i(gpio[31]),
       .hw_fifo_done_i({{(core_v_mini_mcu_pkg::DMA_CH_NUM - 1) {1'b0}}, dlc_done}),
       .dma_done_o(dma_busy)
+       % if user_peripheral_domain.contains_peripheral('serial_link'):
+      ,
+      .ddr_i(ddr_i_xheep),
+      .ddr_o(ddr_o_xheep),
+      .ddr_rcv_clk_i(clk_sl_ext2int),
+      .ddr_rcv_clk_o(clk_sl_int2ext)
+      %endif
   );
 
   // Testbench external bus
@@ -671,7 +698,14 @@ module testharness #(
           .io3(spi_flash_sd_io[3])
       );
 
-      if ((core_v_mini_mcu_pkg::CpuType == cv32e40x || core_v_mini_mcu_pkg::CpuType == cv32e40px || (FPU_SS_ZFINX && core_v_mini_mcu_pkg::CpuType == cv32e20)) && ${cpu.get_sv_str("cv_x_if") if cpu.is_defined("cv_x_if") else "0"} && (QUADRILATERO == 0)) begin: gen_fpu_ss_wrapper
+      // FPU Subsystem
+      // -------------
+      // WARNING: CV32E20 currently only supports offloading two source operands to the coprocessor.
+      //          On the other hand, some instructions in the RISC-V "F" or "D" instructions use the
+      //          R4-type instruction format, with 3 source operands. One example is 'fmadd.s'. So
+      //          make sure not to use CV32E20 if you need a RV32F-compliant system. The FPU is
+      //          connected here just for testing purposes.
+      if ((core_v_mini_mcu_pkg::CpuType == cv32e40x || core_v_mini_mcu_pkg::CpuType == cv32e40px || (FPU_SS_ZFINX && core_v_mini_mcu_pkg::CpuType == cv32e20)) && ${"1" if xif != None else "0"} && (QUADRILATERO == 0)) begin: gen_fpu_ss_wrapper
         fpu_ss_wrapper #(
             .PULP_ZFINX(FPU_SS_ZFINX),
             .INPUT_BUFFER_DEPTH(1),
@@ -693,7 +727,10 @@ module testharness #(
             .xif_result_if(ext_if)
         );
       end
-      if ((core_v_mini_mcu_pkg::CpuType == cv32e40x || core_v_mini_mcu_pkg::CpuType == cv32e40px || core_v_mini_mcu_pkg::CpuType == cv32e20) && ${cpu.get_sv_str("cv_x_if") if cpu.is_defined("cv_x_if") else "0"} && (QUADRILATERO != 0)) begin: gen_quadrilatero_wrapper
+
+      // Quadrilatero
+      // ------------
+      if ((core_v_mini_mcu_pkg::CpuType == cv32e40x || core_v_mini_mcu_pkg::CpuType == cv32e40px || core_v_mini_mcu_pkg::CpuType == cv32e20) && ${"1" if xif != None else "0"} && (QUADRILATERO != 0)) begin: gen_quadrilatero_wrapper
         quadrilatero_wrapper #(
             .MATRIX_FPU(0)
         ) quadrilatero_wrapper_i (
@@ -725,6 +762,30 @@ module testharness #(
         assign ext_master_req[testharness_pkg::EXT_MASTER7_IDX] = '0;
 
       end
+
+      % if user_peripheral_domain.contains_peripheral('serial_link'):
+      serial_link_xheep_wrapper #(
+          .MaxClkDiv(32),
+          .AddrWidth(32),
+          .DataWidth(32)
+      ) serial_link_xheep_wrapper_i (
+          .clk_i        (clk_i),
+          .rst_ni       (rst_ni),
+          .clk_reg_i    (clk_i),
+          .rst_reg_ni   (rst_ni),
+          .testmode_i   ('0),
+          .writer_req_i    (ext_slave_req[testharness_pkg::SL_EXT_IDX]),
+          .writer_rsp_i    (ext_slave_resp[testharness_pkg::SL_EXT_IDX]),
+          .reader_req_i (),
+          .reader_resp_o(),
+          .cfg_req_i    (ext_periph_slv_req[testharness_pkg::SL_REG_IDX]),
+          .cfg_rsp_o    (ext_periph_slv_rsp[testharness_pkg::SL_REG_IDX]),
+          .ddr_i        (ddr_o_xheep),
+          .ddr_rcv_clk_i(clk_sl_int2ext),
+          .ddr_rcv_clk_o(clk_sl_ext2int),
+          .ddr_o        (ddr_i_xheep)
+      );
+    %endif
 
     end else begin : gen_DONT_USE_EXTERNAL_DEVICE_EXAMPLE
       assign slow_ram_slave_resp[0].gnt = '0;
