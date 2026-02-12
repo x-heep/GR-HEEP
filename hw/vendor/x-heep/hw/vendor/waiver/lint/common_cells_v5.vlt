@@ -7,3 +7,6 @@
 lint_off -rule GENUNNAMED -file "*/src/*.sv" -match "Unnamed generate block '*'"
 lint_off -rule UNOPTFLAT -file "*/src/cdc_reset_ctrlr.sv" -match "Signal unoptimizable: Circular combinational logic: '*'"
 lint_off -rule UNOPTFLAT -file "*/src/rr_arb_tree.sv" -match "Signal unoptimizable: Circular combinational logic: '*'"
+lint_off -rule WIDTHTRUNC -file "*/src/rr_arb_tree.sv" -match "Logical operator ASSERT expects * on the Property, but Property's VARREF 'NumIn' generates *"
+lint_off -rule WIDTHEXPAND -file "*/src/addr_decode_dync.sv" -match "Operator LT expects * bits on the LHS, but LHS's SEL generates * bits."
+lint_off -rule SYNCASYNCNET -file "*/src/*.sv" -match "Signal flopped as both synchronous and async: *"
