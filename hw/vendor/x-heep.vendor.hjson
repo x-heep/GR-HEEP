@@ -3,15 +3,15 @@
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 
 {
-  name: "x-heep",
-  target_dir: "x-heep",
+  name: "x-heep"
+  target_dir: "x-heep"
 
   upstream: {
-    url: "https://github.com/x-heep/x-heep.git",
-    rev: "e54bbb8e125d6c6da687d7499787d9699dd81b5c",
-  },
+    url: "https://github.com/x-heep/x-heep.git"
+    rev: "e54bbb8e125d6c6da687d7499787d9699dd81b5c"
+  }
 
-  patch_dir: "patches/x-heep",
+  patch_dir: "patches/x-heep"
 
   exclude_from_upstream: [
     ".github"
