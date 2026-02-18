@@ -85,9 +85,11 @@ module gr_heep (
   obi_req_t  [ExtXbarNmasterRnd-1:0] heep_slave_req;
   obi_resp_t [ExtXbarNmasterRnd-1:0] heep_slave_rsp;
 
+% if (gr_heep["xbar_nslaves"] > 0):
   // External slave ports
   obi_req_t  [ExtXbarNSlaveRnd-1:0] gr_heep_slave_req;
   obi_resp_t [ExtXbarNSlaveRnd-1:0] gr_heep_slave_resp;
+% endif
 
   // External master ports
   obi_req_t  [ExtXbarNmasterRnd-1:0] gr_heep_master_req;
@@ -297,7 +299,6 @@ module gr_heep (
     .ext_slave_resp_i(gr_heep_slave_resp)
   );
 % else:
-  assign gr_heep_slave_req = '0;
   assign heep_slave_req = '0;
   assign heep_core_instr_rsp = '0;
   assign heep_core_data_rsp = '0;
@@ -306,11 +307,9 @@ module gr_heep (
   assign heep_dma_write_rsp = '0;
   assign heep_dma_addr_rsp = '0;
 % endif
-
   assign ext_ao_peripheral_req = '0;
 
 % if (gr_heep["periph_nslaves"] > 0):
-
 gr_heep_peripherals gr_heep_peripherals_i (
   .clk_i(clk_in_x),
   .rst_ni(rst_nin_sync),

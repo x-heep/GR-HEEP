@@ -93,7 +93,7 @@ verilator-build:
 ## First builds the app and then uses Verilator to simulate the HW model and run the FW
 .PHONY: verilator-run-app
 verilator-run-app:
-	$(MAKE) -C $(X_HEEP_DIR) app
+	$(MAKE) app
 	$(FUSESOC) --cores-root . run --no-export --target=sim --tool=verilator $(FUSESOC_FLAGS) \
 		--run x-heep:systems:gr-heep $(FUSESOC_PARAM) \
 		--run_options="+firmware=../../../sw/build/main.hex $(SIM_ARGS)"
