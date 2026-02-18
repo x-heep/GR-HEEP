@@ -10,7 +10,7 @@
 //
 // File: gr_heep_peripherals.sv
 // Author(s):
-//   Luigi Giuffrida, Iñigo Díez
+//   Luigi Giuffrida, Iñigo Díez de Ulzurrun
 // Date: 08/11/2024
 // Description: Template for the GR-heep peripherals module
 
