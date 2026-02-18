@@ -40,7 +40,7 @@ package gr_heep_pkg;
   localparam int unsigned ExtXbarNMaster = 32'd${gr_heep["xbar_nmasters"]};
   localparam int unsigned ExtXbarNSlave = 32'd${gr_heep["xbar_nslaves"]};
   localparam int unsigned ExtXbarNMasterRnd = ExtXbarNMaster > 0 ? ExtXbarNMaster : 32'd1;
-  localparam int unsigned ExtXbarNSlaveRnd = ExtXbarNSlave > 0 ? ExtXbarNSlave : 32'd1; 
+  localparam int unsigned ExtXbarNSlaveRnd = ExtXbarNSlave > 0 ? ExtXbarNSlave : 32'd1;
   localparam int unsigned LogExtXbarNMaster = ExtXbarNMaster > 32'd1 ? $clog2(ExtXbarNMaster) : 32'd1;
   localparam int unsigned LogExtXbarNSlave = ExtXbarNSlave > 32'd1 ? $clog2(ExtXbarNSlave) : 32'd1;
 
@@ -51,9 +51,9 @@ package gr_heep_pkg;
     // ----------
     // ${a_slave['name']}
     localparam int unsigned ${a_slave['name']}Idx = 32'd${a_slave['idx']};
-    localparam logic [31:0] ${a_slave['name']}StartAddr = EXT_SLAVE_START_ADDRESS + 32'h${a_slave['offset']};
-    localparam logic [31:0] ${a_slave['name']}Size = 32'h${a_slave['size']};
-    localparam logic [31:0] ${a_slave['name']}EndAddr = ${a_slave['name']}StartAddr + 32'h${a_slave['size']};
+    localparam logic [31:0] ${a_slave['name']}StartAddr = EXT_SLAVE_START_ADDRESS + 32'h${hex(a_slave['offset'])[2:]};
+    localparam logic [31:0] ${a_slave['name']}Size = 32'h${hex(a_slave['size'])[2:]};
+    localparam logic [31:0] ${a_slave['name']}EndAddr = ${a_slave['name']}StartAddr + 32'h${hex(a_slave['size'])[2:]};
   % endfor
 
   // External slaves address map
@@ -87,9 +87,9 @@ package gr_heep_pkg;
     // ----------
     // ${a_slave['name']}
     localparam int unsigned ${a_slave['name']}PeriphIdx = 32'd${a_slave['idx']};
-    localparam logic [31:0] ${a_slave['name']}PeriphStartAddr = EXT_PERIPHERAL_START_ADDRESS + 32'h${a_slave['offset']};
-    localparam logic [31:0] ${a_slave['name']}PeriphSize = 32'h${a_slave['size']};
-    localparam logic [31:0] ${a_slave['name']}PeriphEndAddr = ${a_slave['name']}PeriphStartAddr + 32'h${a_slave['size']};
+    localparam logic [31:0] ${a_slave['name']}PeriphStartAddr = EXT_PERIPHERAL_START_ADDRESS + 32'h${hex(a_slave['offset'])[2:]};
+    localparam logic [31:0] ${a_slave['name']}PeriphSize = 32'h${hex(a_slave['size'])[2:]};
+    localparam logic [31:0] ${a_slave['name']}PeriphEndAddr = ${a_slave['name']}PeriphStartAddr + 32'h${hex(a_slave['size'])[2:]};
   % endfor
     
     // External peripherals address map

@@ -119,12 +119,12 @@ def gr_heep_config():
     # External slaves memory map
     ext_xbar_slaves = {
         #     "slave_0": {
-        #         "offset":    "0x00000000",
-        #         "length":    "0x00010000",
+        #         "offset":    0x00000000,
+        #         "length":    0x00010000,
         #     },
         #     "slave_1": {
-        #         "offset":    "0x00010000",
-        #         "length":    "0x00010000",
+        #         "offset":    0x00010000,
+        #         "length":    0x00010000,
         #     },
     }
 

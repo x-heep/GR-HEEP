@@ -167,7 +167,7 @@ module gr_heep_bus #(
 
   // External system crossbar
   // ------------------------
-  ext_xbar #(
+  gr_heep_xbar #(
     .XBAR_NMASTER(SYSTEM_XBAR_NMASTER + EXT_XBAR_NMASTER),
     .XBAR_NSLAVE (EXT_XBAR_NSLAVE)
   ) ext_xbar_i (
