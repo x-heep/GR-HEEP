@@ -1,22 +1,19 @@
-// Copyright 2024 Politecnico di Torino, EPFL.
+// Copyright 2024 Politecnico di Torino, EPFL, and Univesidad Politecnica de Madrid.
 // Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
 // SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
 //
 // File: gr_heep.sv
-// Author: Luigi Giuffrida, David Mallasen
+// Author: Luigi Giuffrida, David Mallasen, Iñigo Díez
 // Description: GR-HEEP top-level module
-
 <%!
     from x_heep_gen.pads.pin import Input, Output, Inout, PinDigital, Asignal
 %>
-
 <%
     attribute_bits = xheep.get_padring().attributes.get("bits")
     any_muxed_pads = xheep.get_padring().num_muxed_pads() > 0
     analog_signal_pads = [ pad for pad in xheep.get_padring().pad_list if any(isinstance(pin, Asignal) for pin in pad.pins) ]
     gr_heep = xheep.get_extension("gr-heep")
 %>
-
 module gr_heep (
     // X-HEEP interface
     % for pad in xheep.get_padring().pad_list:
@@ -299,13 +296,15 @@ module gr_heep (
     .ext_slave_resp_i(gr_heep_slave_resp)
   );
 % else:
-  assign heep_slave_req = '0;
   assign heep_core_instr_rsp = '0;
   assign heep_core_data_rsp = '0;
   assign heep_debug_master_rsp = '0;
   assign heep_dma_read_rsp = '0;
   assign heep_dma_write_rsp = '0;
   assign heep_dma_addr_rsp = '0;
+% endif
+% if (gr_heep["xbar_nmasters"] == 0):
+  assign heep_slave_req = '0;
 % endif
   assign ext_ao_peripheral_req = '0;
 
@@ -336,6 +335,7 @@ gr_heep_peripherals gr_heep_peripherals_i (
 %endif
 );
 % else:
+
   assign heep_peripheral_rsp = '0;
 % endif
 
@@ -344,8 +344,10 @@ gr_heep_peripherals gr_heep_peripherals_i (
   assign ext_dma_slot_tx = '0;
   assign ext_dma_slot_rx = '0;
 % if (gr_heep["ext_interrupts"] == 0):
-  assign ext_int_vector[NEXT_INT-1:${gr_heep["ext_interrupts"]}] = '0;
+  assign ext_int_vector = '0;
   assign intr_ext_peripheral = '0;
+% else:
+  assign ext_int_vector[NEXT_INT-1:${gr_heep["ext_interrupts"]}] = '0;
 % endif
   assign exit_value_out_x = exit_value[0];
 
