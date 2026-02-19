@@ -82,11 +82,11 @@ module gr_heep (
   obi_req_t  [ExtXbarNmasterRnd-1:0] heep_slave_req;
   obi_resp_t [ExtXbarNmasterRnd-1:0] heep_slave_rsp;
 
-% if (gr_heep["xbar_nslaves"] > 0):
-  // External slave ports
-  obi_req_t  [ExtXbarNSlaveRnd-1:0] gr_heep_slave_req;
-  obi_resp_t [ExtXbarNSlaveRnd-1:0] gr_heep_slave_resp;
-% endif
+  % if (gr_heep["xbar_nslaves"] > 0):
+    // External slave ports
+    obi_req_t  [ExtXbarNSlaveRnd-1:0] gr_heep_slave_req;
+    obi_resp_t [ExtXbarNSlaveRnd-1:0] gr_heep_slave_resp;
+  % endif
 
   // External master ports
   obi_req_t  [ExtXbarNmasterRnd-1:0] gr_heep_master_req;
@@ -267,93 +267,92 @@ module gr_heep (
     .exit_value_o (exit_value)
   );
 
-% if (gr_heep["xbar_nslaves"] > 0):
-    gr_heep_bus #(
-    .EXT_XBAR_NMASTER(gr_heep_pkg::ExtXbarNMaster),
-    .EXT_XBAR_NSLAVE (gr_heep_pkg::ExtXbarNSlave)
-  ) gr_heep_bus_i (
-    .clk_i(clk_in_x),
-    .rst_ni(rst_nin_sync),
-    .addr_map_i(gr_heep_pkg::ExtPeriphAddrRules),
-    .default_idx_i('0),
-    .heep_core_instr_req_i(heep_core_instr_req),
-    .heep_core_instr_resp_o(heep_core_instr_rsp),
-    .heep_core_data_req_i(heep_core_data_req),
-    .heep_core_data_resp_o(heep_core_data_rsp),
-    .heep_debug_master_req_i(heep_debug_master_req),
-    .heep_debug_master_resp_o(heep_debug_master_rsp),
-    .heep_dma_read_req_i(heep_dma_read_req),
-    .heep_dma_read_resp_o(heep_dma_read_rsp),
-    .heep_dma_write_req_i(heep_dma_write_req),
-    .heep_dma_write_resp_o(heep_dma_write_rsp),
-    .heep_dma_addr_req_i(heep_dma_addr_req),
-    .heep_dma_addr_resp_o(heep_dma_addr_rsp),
-    .ext_master_req_i(gr_heep_master_req),
-    .ext_master_resp_o(gr_heep_master_resp),
-    .heep_slave_req_o(heep_slave_req),
-    .heep_slave_resp_i(heep_slave_rsp),
-    .ext_slave_req_o(gr_heep_slave_req),
-    .ext_slave_resp_i(gr_heep_slave_resp)
-  );
-% else:
-  assign heep_core_instr_rsp = '0;
-  assign heep_core_data_rsp = '0;
-  assign heep_debug_master_rsp = '0;
-  assign heep_dma_read_rsp = '0;
-  assign heep_dma_write_rsp = '0;
-  assign heep_dma_addr_rsp = '0;
-% endif
-% if (gr_heep["xbar_nmasters"] == 0):
-  assign gr_heep_master_req = '0;
-  assign heep_slave_req = '0;
-% else:
   % if (gr_heep["xbar_nslaves"] > 0):
-  assign heep_slave_req = '0;
+    gr_heep_bus #(
+      .EXT_XBAR_NMASTER(gr_heep_pkg::ExtXbarNMaster),
+      .EXT_XBAR_NSLAVE (gr_heep_pkg::ExtXbarNSlave)
+    ) gr_heep_bus_i (
+      .clk_i(clk_in_x),
+      .rst_ni(rst_nin_sync),
+      .addr_map_i(gr_heep_pkg::ExtPeriphAddrRules),
+      .default_idx_i('0),
+      .heep_core_instr_req_i(heep_core_instr_req),
+      .heep_core_instr_resp_o(heep_core_instr_rsp),
+      .heep_core_data_req_i(heep_core_data_req),
+      .heep_core_data_resp_o(heep_core_data_rsp),
+      .heep_debug_master_req_i(heep_debug_master_req),
+      .heep_debug_master_resp_o(heep_debug_master_rsp),
+      .heep_dma_read_req_i(heep_dma_read_req),
+      .heep_dma_read_resp_o(heep_dma_read_rsp),
+      .heep_dma_write_req_i(heep_dma_write_req),
+      .heep_dma_write_resp_o(heep_dma_write_rsp),
+      .heep_dma_addr_req_i(heep_dma_addr_req),
+      .heep_dma_addr_resp_o(heep_dma_addr_rsp),
+      .ext_master_req_i(gr_heep_master_req),
+      .ext_master_resp_o(gr_heep_master_resp),
+      .heep_slave_req_o(heep_slave_req),
+      .heep_slave_resp_i(heep_slave_rsp),
+      .ext_slave_req_o(gr_heep_slave_req),
+      .ext_slave_resp_i(gr_heep_slave_resp)
+    );
+  % else:
+    assign heep_core_instr_rsp = '0;
+    assign heep_core_data_rsp = '0;
+    assign heep_debug_master_rsp = '0;
+    assign heep_dma_read_rsp = '0;
+    assign heep_dma_write_rsp = '0;
+    assign heep_dma_addr_rsp = '0;
   % endif
-% endif
+  % if (gr_heep["xbar_nmasters"] == 0):
+    assign gr_heep_master_req = '0;
+    assign heep_slave_req = '0;
+  % else:
+    % if (gr_heep["xbar_nslaves"] > 0):
+      assign heep_slave_req = '0;
+    % endif
+  % endif
   assign ext_ao_peripheral_req = '0;
 
-% if (gr_heep["periph_nslaves"] > 0):
-gr_heep_peripherals gr_heep_peripherals_i (
-  .clk_i(clk_in_x),
-  .rst_ni(rst_nin_sync),
-% if (gr_heep["xbar_nmasters"] > 0):
-  % if (gr_heep["xbar_nslaves"] > 0):
-  .gr_heep_master_req_o(gr_heep_master_req),
-  .gr_heep_master_resp_i(gr_heep_master_resp)${'' if (gr_heep["xbar_nslaves"] + gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) else ','}
+  % if (gr_heep["periph_nslaves"] > 0):
+    gr_heep_peripherals gr_heep_peripherals_i (
+      .clk_i(clk_in_x),
+      .rst_ni(rst_nin_sync),
+      % if (gr_heep["xbar_nmasters"] > 0):
+        % if (gr_heep["xbar_nslaves"] > 0):
+          .gr_heep_master_req_o(gr_heep_master_req),
+          .gr_heep_master_resp_i(gr_heep_master_resp)${'' if (gr_heep["xbar_nslaves"] + gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) else ','}
+        % else:
+          .gr_heep_master_req_o(heep_slave_req),
+          .gr_heep_master_resp_i(heep_slave_rsp)${'' if (gr_heep["xbar_nslaves"] + gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) else ','}
+        % endif
+      % endif
+      % if (gr_heep["xbar_nslaves"] > 0):
+        .gr_heep_slave_req_i(gr_heep_slave_req),
+        .gr_heep_slave_resp_o(gr_heep_slave_resp)${'' if (gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) else ','}
+      % endif
+      % if (gr_heep["periph_nslaves"] > 0):
+        .gr_heep_peripheral_req_i(heep_peripheral_req),
+        .gr_heep_peripheral_rsp_o(heep_peripheral_rsp)${'' if (gr_heep["ext_interrupts"] == 0) else ','}
+      % endif
+      % if (gr_heep["ext_interrupts"] > 0):
+        .gr_heep_peripheral_vec_int_o(ext_int_vector[${gr_heep["ext_interrupts"]-1}:0]),
+        .gr_heep_peripheral_int_o(intr_ext_peripheral)
+      %endif
+    );
   % else:
-  .gr_heep_master_req_o(heep_slave_req),
-  .gr_heep_master_resp_i(heep_slave_rsp)${'' if (gr_heep["xbar_nslaves"] + gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) else ','}
+    assign heep_peripheral_rsp = '0;
   % endif
-% endif
-% if (gr_heep["xbar_nslaves"] > 0):
-  .gr_heep_slave_req_i(gr_heep_slave_req),
-  .gr_heep_slave_resp_o(gr_heep_slave_resp)${'' if (gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) else ','}
-% endif
-% if (gr_heep["periph_nslaves"] > 0):
-  .gr_heep_peripheral_req_i(heep_peripheral_req),
-  .gr_heep_peripheral_rsp_o(heep_peripheral_rsp)${'' if (gr_heep["ext_interrupts"] == 0) else ','}
-% endif
-% if (gr_heep["ext_interrupts"] > 0):
-  .gr_heep_peripheral_vec_int_o(ext_int_vector[${gr_heep["ext_interrupts"]-1}:0]),
-  .gr_heep_peripheral_int_o(intr_ext_peripheral)
-%endif
-);
-% else:
-
-  assign heep_peripheral_rsp = '0;
-% endif
 
   assign hw_fifo_done = '0;
   assign hw_fifo_rsp = '0;
   assign ext_dma_slot_tx = '0;
   assign ext_dma_slot_rx = '0;
-% if (gr_heep["ext_interrupts"] == 0):
-  assign ext_int_vector = '0;
-  assign intr_ext_peripheral = '0;
-% else:
-  assign ext_int_vector[NEXT_INT-1:${gr_heep["ext_interrupts"]}] = '0;
-% endif
+  % if (gr_heep["ext_interrupts"] == 0):
+    assign ext_int_vector = '0;
+    assign intr_ext_peripheral = '0;
+  % else:
+    assign ext_int_vector[NEXT_INT-1:${gr_heep["ext_interrupts"]}] = '0;
+  % endif
   assign exit_value_out_x = exit_value[0];
 
   // Pad ring
