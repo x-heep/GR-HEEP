@@ -274,7 +274,7 @@ module gr_heep (
     ) gr_heep_bus_i (
       .clk_i(clk_in_x),
       .rst_ni(rst_nin_sync),
-      .addr_map_i(gr_heep_pkg::ExtPeriphAddrRules),
+      .addr_map_i(gr_heep_pkg::ExtSlaveAddrRules),
       .default_idx_i('0),
       .heep_core_instr_req_i(heep_core_instr_req),
       .heep_core_instr_resp_o(heep_core_instr_rsp),
