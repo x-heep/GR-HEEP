@@ -1,0 +1,13 @@
+diff --git a/external.mk b/external.mk
+--- a/external.mk
++++ b/external.mk
+@@ -22,7 +22,8 @@ MAKE	= make
+ 
+ # Furthermore, a variable HEEP_DIR with the relative path between that directory and the X-HEEP base directory (where this file is lcoated) needs to be exported.
+ # This will compute the opposite relative path (from the X-HEEP base directory to where this file is included).
+-HEEP_REL_PATH = $(shell realpath --relative-to=$(HEEP_DIR) ".")
++# Use Python for portability (macOS BSD realpath lacks --relative-to support)
++HEEP_REL_PATH = $(shell python3 -c "import os; print(os.path.relpath('.', '$(HEEP_DIR)'))")
+ 
+ # This assumes that you are including this file from a directory where you have a "sw" directory.
+ # When this path is provided to sw/Makefile, it will be the relative path from there to the uppermost sw directory.
