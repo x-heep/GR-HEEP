@@ -40,7 +40,7 @@ def config():
 
     system.set_xif(
         CvXIf(
-            x_num_rs=3,  # for FPU testing only (CV32E20 does not actually read 3 GPRs)
+            x_num_rs=3,
             x_id_width=4,
             x_mem_width=32,
             x_rfr_width=32,
