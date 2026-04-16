@@ -48,7 +48,25 @@ SIM_TIMEOUT_S = 180
 
 # Whitelist of apps. Has priority over the blacklist.
 # Useful if you only want to test certain apps
-WHITELIST_XHEEP = []
+WHITELIST_XHEEP = [
+    "example_asm",
+    "example_cpp",
+    "example_data_processing_from_flash",
+    "example_dma_multichannel",
+    "example_dma_sdk",
+    "example_dma_2d",
+    "example_fft",
+    "example_gpio_toggle",
+    "example_matadd",
+    "example_matadd_interleaved",
+    "example_matfloat",
+    "example_minimal",
+    "example_spidma_powergate",
+    "example_tensor_format_conv",
+    "example_timer_sdk",
+    "example_xheep_config",
+    "hello_world",
+]
 WHITELIST = []
 
 # Blacklist of apps to skip
