@@ -24,6 +24,13 @@ module xilinx_gr_heep_wrapper
 `else
     inout logic clk_i,
 `endif
+
+`ifndef NO_DDR_CLK_PORTS
+    // Serial Link DDR clock ports for PYNQ Z2 board (set in .core file)
+    input  wire ddr_rcv_clk_i,
+    output wire ddr_snd_clk_o,
+`endif
+
     inout logic rst_i,
 
     output logic rst_led_o,
@@ -154,6 +161,13 @@ module xilinx_gr_heep_wrapper
     .uart_rx_i(uart_rx_i),
     .uart_tx_o(uart_tx_o),
     .exit_valid_o(exit_valid_o),
+`ifndef NO_DDR_CLK_PORTS
+    .ddr_rcv_clk_i(ddr_rcv_clk_i),
+    .ddr_snd_clk_o(ddr_snd_clk_o),
+`else
+    .ddr_rcv_clk_i(1'b0),
+    .ddr_snd_clk_o(),
+`endif
     .exit_value_o(exit_value),
     .gpio_0_io(gpio_io[0]),
     .gpio_1_io(gpio_io[1]),
