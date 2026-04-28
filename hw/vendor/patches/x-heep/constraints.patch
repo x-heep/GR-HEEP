@@ -190,3 +190,18 @@ index c8fd23f..870227c 100644
 -set_false_path -from x_heep_system_i/rstgen_i/i_rstgen_bypass/synch_regs_q_reg[3]/C
 +set_false_path -from gr_heep_i/core_v_mini_mcu_i/debug_subsystem_i/dm_obi_top_i/i_dm_top/i_dm_csrs/dmcontrol_q_reg\[ndmreset\]/C
 +set_false_path -from gr_heep_i/rstgen_i/i_rstgen_bypass/synch_regs_q_reg[3]/C
+diff --git a/hw/fpga/constraints/pynq-z2/constraints.xdc.tpl b/hw/fpga/constraints/pynq-z2/constraints.xdc.tpl
+index 92087c8..47dad69 100644
+--- a/hw/fpga/constraints/pynq-z2/constraints.xdc.tpl
++++ b/hw/fpga/constraints/pynq-z2/constraints.xdc.tpl
+@@ -6,8 +6,8 @@ create_clock -add -name jtag_clk_pin -period 100.00 -waveform {0 50} [get_ports
+ create_clock -add -name spi_slave_clk_pin -period 16.00 -waveform {0 8} [get_ports {spi_slave_sck_io}];
+ 
+ ### Reset Constraints
+-set_false_path -from x_heep_system_i/core_v_mini_mcu_i/debug_subsystem_i/dm_obi_top_i/i_dm_top/i_dm_csrs/dmcontrol_q_reg\[ndmreset\]/C
+-set_false_path -from x_heep_system_i/rstgen_i/i_rstgen_bypass/synch_regs_q_reg[3]/C
++set_false_path -from gr_heep_i/core_v_mini_mcu_i/debug_subsystem_i/dm_obi_top_i/i_dm_top/i_dm_csrs/dmcontrol_q_reg\[ndmreset\]/C
++set_false_path -from gr_heep_i/rstgen_i/i_rstgen_bypass/synch_regs_q_reg[3]/C
+ % if user_peripheral_domain.contains_peripheral('serial_link'):
+ ### Serial Link 
+ # constraints are taken from https://github.com/pulp-platform/serial_link
