@@ -44,6 +44,8 @@ module testharness #(
   wire boot_select;
   wire execute_from_flash;
   wire exit_valid;
+  wire ddr_rcv_clk;
+  wire ddr_snd_clk;
   wire uart_rx;
   wire uart_tx;
   logic sim_jtag_enable = (JTAG_DPI == 1);
@@ -111,6 +113,8 @@ module testharness #(
       .uart_rx_i(uart_rx),
       .uart_tx_o(uart_tx),
       .exit_valid_o(exit_valid),
+      .ddr_rcv_clk_i(ddr_rcv_clk),
+      .ddr_snd_clk_o(ddr_snd_clk),
       .exit_value_o(exit_value),
       .gpio_0_io(gpio[0]),
       .gpio_1_io(gpio[1]),
