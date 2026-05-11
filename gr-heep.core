@@ -13,6 +13,8 @@ filesets:
     - x-heep::packages
     - x-heep:ip:pad_control
     - openhwgroup.org:systems:core-v-mini-mcu
+    - polito:isa-lab:cnt
+    - tfm:crypto:falcon_accelerator
     files:
     - hw/gr-heep/gr_heep_pkg.sv
     - hw/gr-heep/gr_heep_xbar.sv

@@ -87,19 +87,34 @@ module gr_heep_peripherals (
     );
 
     // Instantiate here the external peripherals
+        // Instantiate here the external peripherals
     % for a_slave in gr_heep["peripherals"]:
-        // % if (a_slave['name'] == "TestIp"):
-        //   // Test IP
-        //   test_ip test_ip_i (
-        //       .clk_i,
-        //       .rst_ni(rst_ni),
-        //       .reg_req_i(gr_heep_peripheral_req[gr_heep_pkg::TestIpPeriphIdx]),
-        //       .reg_rsp_o(gr_heep_peripheral_rsp[gr_heep_pkg::TestIpPeriphIdx]),
-        //       .read_req_i(gr_heep_slave_req_i[gr_heep_pkg::TestIpIdx]),
-        //       .read_resp_o(gr_heep_slave_resp_o[gr_heep_pkg::TestIpIdx]),
-        //       .gr_heep_peripheral_vec_int[0]
-        //   );
-        // % endif
+        % if (a_slave['name'] == "SimpleCnt"):
+        cnt_obi #(
+          .W (32)
+        ) u_cnt_obi (
+          .clk_i(clk_i),
+          .rst_ni(rst_ni),
+          .reg_req_i(gr_heep_peripheral_req[gr_heep_pkg::SimpleCntPeriphIdx]),
+          .reg_rsp_o(gr_heep_peripheral_rsp[gr_heep_pkg::SimpleCntPeriphIdx]),
+          .obi_req_i(gr_heep_slave_req_i[gr_heep_pkg::SimpleCntIdx]),
+          .obi_rsp_o(gr_heep_slave_resp_o[gr_heep_pkg::SimpleCntIdx]),
+          .tc_int_o(gr_heep_peripheral_vec_int[0])
+        );
+        % endif
+        % if (a_slave['name'] == "FalconAccelerator"):
+        falcon_accelerator #(
+          .W (32)
+        ) u_falcon_accelerator (
+          .clk_i(clk_i),
+          .rst_ni(rst_ni),
+          .reg_req_i(gr_heep_peripheral_req[gr_heep_pkg::FalconAcceleratorPeriphIdx]),
+          .reg_rsp_o(gr_heep_peripheral_rsp[gr_heep_pkg::FalconAcceleratorPeriphIdx]),
+          .obi_req_i(gr_heep_slave_req_i[gr_heep_pkg::FalconAcceleratorIdx]),
+          .obi_rsp_o(gr_heep_slave_resp_o[gr_heep_pkg::FalconAcceleratorIdx]),
+          .done_int_o(gr_heep_peripheral_vec_int[1])
+        );
+        % endif
     % endfor
   % endif
 
