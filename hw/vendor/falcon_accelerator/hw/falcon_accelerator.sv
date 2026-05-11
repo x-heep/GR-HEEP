@@ -100,6 +100,18 @@ module falcon_accelerator #(
   logic        obi_rvalid_q;
   logic [31:0] obi_rdata_q;
 
+  // PQC_Falcon HLS NTT IP structural instance.
+  // Parked for now; current functional path still uses local NTT16.
+  logic hls_ntt_interrupt;
+  logic hls_ntt_present;
+
+  falcon_ntt_hls_wrapper u_falcon_ntt_hls_wrapper (
+    .clk_i         (clk_i),
+    .rst_ni        (rst_ni),
+    .interrupt_o   (hls_ntt_interrupt),
+    .hls_present_o (hls_ntt_present)
+  );
+
   // Address decoding
   logic [7:0] reg_addr;
   logic [7:0] obi_addr;
@@ -115,7 +127,9 @@ module falcon_accelerator #(
     obi_req_i.be,
     obi_req_i.we,
     reg_req_i.addr[31:8],
-    reg_req_i.wstrb
+    reg_req_i.wstrb,
+    hls_ntt_interrupt,
+    hls_ntt_present
   };
 
   // --------------------------------------------------------------------------

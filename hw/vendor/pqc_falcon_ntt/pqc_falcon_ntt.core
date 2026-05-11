@@ -46,6 +46,9 @@ filesets:
       - ../PQC_Falcon/impl_FPGA/optimized/NTT/maxi/ip/hdl/verilog/NTT_hls_deadlock_report_unit.vh:
           file_type: verilogSource
           is_include_file: true
+      - ../PQC_Falcon/impl_FPGA/optimized/NTT/maxi/ip/hdl/verilog/NTT_ntt_10_stages_GMb_ROM_AUTO_1R.dat:
+          file_type: user
+          copyto: NTT_ntt_10_stages_GMb_ROM_AUTO_1R.dat
     file_type: verilogSource
 
 targets:
