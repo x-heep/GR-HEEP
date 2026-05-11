@@ -1,0 +1,19 @@
+CAPI=2:
+
+name: tfm:crypto:falcon_accelerator:0.1.0
+description: Dummy Falcon accelerator for GR-HEEP/X-HEEP integration
+
+filesets:
+  rtl:
+    depend:
+    - polito:isa-lab:cnt
+    - tfm:crypto:pqc_falcon_ntt
+    files:
+    - hw/falcon_accelerator.sv
+    file_type: systemVerilogSource
+
+targets:
+  default:
+    filesets:
+    - rtl
+    toplevel: falcon_accelerator
