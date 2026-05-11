@@ -1,0 +1,113 @@
+// Copyright 2024 Politecnico di Torino and Universidad Politecnica de Madrid.
+// Copyright and related rights are licensed under the Solderpad Hardware
+// License, Version 2.0 (the "License"); you may not use this file except in
+// compliance with the License. You may obtain a copy of the License at
+// http://solderpad.org/licenses/SHL-2.0. Unless required by applicable law
+// or agreed to in writing, software, hardware and materials distributed under
+// this License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+// CONDITIONS OF ANY KIND, either express or implied. See the License for the
+// specific language governing permissions and limitations under the License.
+//
+// File: gr_heep_peripherals.sv
+// Author(s):
+//   Luigi Giuffrida, Iñigo Díez de Ulzurrun
+// Date: 08/11/2024
+// Description: Template for the GR-heep peripherals module
+
+
+
+module gr_heep_peripherals (
+  input logic clk_i,
+  input logic rst_ni,
+
+  // External peripherals slave ports
+  input  obi_pkg::obi_req_t  [gr_heep_pkg::ExtXbarNSlaveRnd-1:0] gr_heep_slave_req_i,
+  output obi_pkg::obi_resp_t [gr_heep_pkg::ExtXbarNSlaveRnd-1:0] gr_heep_slave_resp_o,
+  // External peripherals configuration ports
+  input  reg_pkg::reg_req_t                                      gr_heep_peripheral_req_i,
+  output reg_pkg::reg_rsp_t                                      gr_heep_peripheral_rsp_o,
+  // External peripherals interrupt ports
+  output logic               [   gr_heep_pkg::ExtInterrupts-1:0] gr_heep_peripheral_vec_int_o,
+  output logic                                                   gr_heep_peripheral_int_o
+);
+
+  logic [gr_heep_pkg::ExtInterrupts-1:0] gr_heep_peripheral_vec_int;
+  assign gr_heep_peripheral_vec_int_o = gr_heep_peripheral_vec_int;
+  assign gr_heep_peripheral_int_o = |gr_heep_peripheral_vec_int;
+
+  reg_pkg::reg_req_t [gr_heep_pkg::ExtPeriphNSlaveRnd-1:0] gr_heep_peripheral_req;
+  reg_pkg::reg_rsp_t [gr_heep_pkg::ExtPeriphNSlaveRnd-1:0] gr_heep_peripheral_rsp;
+
+  logic [gr_heep_pkg::LogExtPeriphNSlave-1:0] ext_periph_select;
+
+  // External bus for register interfaces
+  addr_decode #(
+    .NoIndices(gr_heep_pkg::ExtPeriphNSlave),
+    .NoRules(gr_heep_pkg::ExtPeriphNSlave),
+    .addr_t(logic [31:0]),
+    .rule_t(addr_map_rule_pkg::addr_map_rule_t)
+  ) addr_decode_gr_heep_ext_periph_i (
+    .addr_i(gr_heep_peripheral_req_i.addr),
+    .addr_map_i(gr_heep_pkg::ExtPeriphAddrRules),
+    .idx_o(ext_periph_select),
+    .dec_valid_o(),
+    .dec_error_o(),
+    .en_default_idx_i(1'b1),
+    .default_idx_i(gr_heep_pkg::LogExtPeriphNSlave'(gr_heep_pkg::ExtPeriphDefaultIdx))
+  );
+
+  reg_demux #(
+    .NoPorts(gr_heep_pkg::ExtPeriphNSlaveRnd),
+    .req_t  (reg_pkg::reg_req_t),
+    .rsp_t  (reg_pkg::reg_rsp_t)
+  ) reg_demux_i (
+    .clk_i,
+    .rst_ni,
+    .in_select_i(ext_periph_select),
+    .in_req_i(gr_heep_peripheral_req_i),
+    .in_rsp_o(gr_heep_peripheral_rsp_o),
+    .out_req_o(gr_heep_peripheral_req),
+    .out_rsp_i(gr_heep_peripheral_rsp)
+  );
+
+  // Instantiate here the external peripherals
+  // Instantiate here the external peripherals
+  cnt_obi #(
+    .W(32)
+  ) u_cnt_obi (
+    .clk_i(clk_i),
+    .rst_ni(rst_ni),
+
+    .obi_req_i(gr_heep_slave_req_i[gr_heep_pkg::SimpleCntIdx].req),
+    .obi_we_i(gr_heep_slave_req_i[gr_heep_pkg::SimpleCntIdx].we),
+    .obi_be_i(gr_heep_slave_req_i[gr_heep_pkg::SimpleCntIdx].be),
+    .obi_addr_i(gr_heep_slave_req_i[gr_heep_pkg::SimpleCntIdx].addr),
+    .obi_wdata_i(gr_heep_slave_req_i[gr_heep_pkg::SimpleCntIdx].wdata),
+    .obi_gnt_o(gr_heep_slave_resp_o[gr_heep_pkg::SimpleCntIdx].gnt),
+    .obi_rvalid_o(gr_heep_slave_resp_o[gr_heep_pkg::SimpleCntIdx].rvalid),
+    .obi_rdata_o(gr_heep_slave_resp_o[gr_heep_pkg::SimpleCntIdx].rdata),
+
+    .reg_valid_i(gr_heep_peripheral_req[gr_heep_pkg::SimpleCntPeriphIdx].valid),
+    .reg_write_i(gr_heep_peripheral_req[gr_heep_pkg::SimpleCntPeriphIdx].write),
+    .reg_wstrb_i(gr_heep_peripheral_req[gr_heep_pkg::SimpleCntPeriphIdx].wstrb),
+    .reg_addr_i(gr_heep_peripheral_req[gr_heep_pkg::SimpleCntPeriphIdx].addr),
+    .reg_wdata_i(gr_heep_peripheral_req[gr_heep_pkg::SimpleCntPeriphIdx].wdata),
+    .reg_error_o(gr_heep_peripheral_rsp[gr_heep_pkg::SimpleCntPeriphIdx].error),
+    .reg_ready_o(gr_heep_peripheral_rsp[gr_heep_pkg::SimpleCntPeriphIdx].ready),
+    .reg_rdata_o(gr_heep_peripheral_rsp[gr_heep_pkg::SimpleCntPeriphIdx].rdata),
+
+    .tc_int_o(gr_heep_peripheral_vec_int[0])
+  );
+  falcon_accelerator #(
+    .W(32)
+  ) u_falcon_accelerator (
+    .clk_i(clk_i),
+    .rst_ni(rst_ni),
+    .reg_req_i(gr_heep_peripheral_req[gr_heep_pkg::FalconAcceleratorPeriphIdx]),
+    .reg_rsp_o(gr_heep_peripheral_rsp[gr_heep_pkg::FalconAcceleratorPeriphIdx]),
+    .obi_req_i(gr_heep_slave_req_i[gr_heep_pkg::FalconAcceleratorIdx]),
+    .obi_rsp_o(gr_heep_slave_resp_o[gr_heep_pkg::FalconAcceleratorIdx]),
+    .done_int_o(gr_heep_peripheral_vec_int[1])
+  );
+
+endmodule
