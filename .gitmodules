@@ -1,0 +1,3 @@
+[submodule "hw/vendor/PQC_Falcon"]
+	path = hw/vendor/PQC_Falcon
+	url = https://github.com/vic9112/PQC_Falcon.git
