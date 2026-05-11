@@ -53,8 +53,9 @@ module falcon_accelerator #(
   localparam int unsigned STATUS_BUSY_BIT = 1;
 
   // MODE values
-  localparam logic [31:0] MODE_DUMMY = 32'd0;
-  localparam logic [31:0] MODE_NTT   = 32'd1;
+  localparam logic [31:0] MODE_DUMMY   = 32'd0;
+  localparam logic [31:0] MODE_NTT     = 32'd1;
+  localparam logic [31:0] MODE_NTT_HLS = 32'd2;
 
   // Falcon parameters
   localparam logic [31:0] FALCON_Q   = 32'd12289;
@@ -105,11 +106,18 @@ module falcon_accelerator #(
   logic hls_ntt_interrupt;
   logic hls_ntt_present;
 
+  logic hls_ntt_start;
+  logic hls_ntt_done;
+  logic hls_ntt_busy;
+
   falcon_ntt_hls_wrapper u_falcon_ntt_hls_wrapper (
-    .clk_i         (clk_i),
-    .rst_ni        (rst_ni),
-    .interrupt_o   (hls_ntt_interrupt),
-    .hls_present_o (hls_ntt_present)
+  .clk_i         (clk_i),
+  .rst_ni        (rst_ni),
+  .start_i       (hls_ntt_start),
+  .done_o        (hls_ntt_done),
+  .busy_o        (hls_ntt_busy),
+  .interrupt_o   (hls_ntt_interrupt),
+  .hls_present_o (hls_ntt_present)
   );
 
   // Address decoding
@@ -129,7 +137,9 @@ module falcon_accelerator #(
     reg_req_i.addr[31:8],
     reg_req_i.wstrb,
     hls_ntt_interrupt,
-    hls_ntt_present
+    hls_ntt_present,
+    hls_ntt_done,
+    hls_ntt_busy
   };
 
   // --------------------------------------------------------------------------
@@ -246,6 +256,10 @@ module falcon_accelerator #(
     end
   endtask
 
+  // HLS NTT start pulse
+  // --------------------------------------------------------------------------
+  assign hls_ntt_start = start_pulse && !busy_q && (mode_q == MODE_NTT_HLS);
+
   // --------------------------------------------------------------------------
   // Main accelerator FSM
   // --------------------------------------------------------------------------
@@ -349,6 +363,10 @@ module falcon_accelerator #(
             MODE_NTT: begin
               compute_ntt_local();
               output_q <= 32'h0000_0F11;
+            end
+            
+            MODE_NTT_HLS: begin
+              output_q <= 32'h0000_0A11;
             end
 
             default: begin

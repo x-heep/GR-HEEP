@@ -14,6 +14,9 @@
 module falcon_ntt_hls_wrapper (
   input  logic clk_i,
   input  logic rst_ni,
+  input  logic start_i,
+  output logic done_o,
+  output logic busy_o,
   output logic interrupt_o,
   output logic hls_present_o
 );
@@ -74,9 +77,15 @@ module falcon_ntt_hls_wrapper (
   assign interrupt_o   = interrupt;
   assign hls_present_o = 1'b1;
 
+  // Temporary parked status. The HLS IP is structurally present but not yet
+  // functionally driven in this minimal build-fix version.
+  assign done_o = 1'b0;
+  assign busy_o = 1'b0;
+
   // Consume parked outputs to keep older Verilator flows quiet.
   logic unused_hls_outputs;
   assign unused_hls_outputs = ^{
+    start_i,
     s_axi_control_AWREADY,
     s_axi_control_WREADY,
     s_axi_control_ARREADY,
