@@ -347,32 +347,38 @@ module falcon_accelerator #(
         cycle_cnt_q <= 8'h0;
       end
 
-      // Operation latency
+      // Operation completion
       if (busy_q) begin
-        cycle_cnt_q <= cycle_cnt_q + 8'h1;
+        if (mode_q == MODE_NTT_HLS) begin
+          // Experimental HLS mode: completion is driven by the HLS wrapper.
+          if (hls_ntt_done) begin
+            busy_q   <= 1'b0;
+            done_q   <= 1'b1;
+            output_q <= 32'h0000_0A11;
+          end
+        end else begin
+          // Local modes keep the previous fixed-latency behaviour.
+          cycle_cnt_q <= cycle_cnt_q + 8'h1;
 
-        if (cycle_cnt_q == 8'd16) begin
-          busy_q <= 1'b0;
-          done_q <= 1'b1;
+          if (cycle_cnt_q == 8'd16) begin
+            busy_q <= 1'b0;
+            done_q <= 1'b1;
 
-          unique case (mode_q)
-            MODE_DUMMY: begin
-              output_q <= (input_q ^ 32'hFA1C_0F00) & DATA_MASK;
-            end
+            unique case (mode_q)
+              MODE_DUMMY: begin
+                output_q <= (input_q ^ 32'hFA1C_0F00) & DATA_MASK;
+              end
 
-            MODE_NTT: begin
-              compute_ntt_local();
-              output_q <= 32'h0000_0F11;
-            end
-            
-            MODE_NTT_HLS: begin
-              output_q <= 32'h0000_0A11;
-            end
+              MODE_NTT: begin
+                compute_ntt_local();
+                output_q <= 32'h0000_0F11;
+              end
 
-            default: begin
-              output_q <= 32'hDEAD_BEEF;
-            end
-          endcase
+              default: begin
+                output_q <= 32'hDEAD_BEEF;
+              end
+            endcase
+          end
         end
       end
     end
