@@ -184,6 +184,16 @@ int main(void)
 
     falcon_set_mode(FALCON_MODE_NTT_HLS);
 
+    for (uint32_t i = 0; i < N; i++) {
+        falcon_write_coeff(i, i + 1u);
+    }
+
+    printf("HLS NTT first 16 coeffs before:");
+    for (uint32_t i = 0; i < N; i++) {
+        printf(" %u", falcon_read_coeff(i) & 0xFFFFu);
+    }
+    printf("\n");
+
     printf("Falcon HLS NTT control mode start\n");
 
     falcon_start();

@@ -109,6 +109,8 @@ module falcon_accelerator #(
   logic hls_ntt_start;
   logic hls_ntt_done;
   logic hls_ntt_busy;
+  logic hls_ntt_debug_we;
+  logic [31:0] hls_ntt_debug_wdata;
   logic [31:0] hls_ntt_debug_rdata;
 
   falcon_ntt_hls_wrapper u_falcon_ntt_hls_wrapper (
@@ -117,7 +119,9 @@ module falcon_accelerator #(
   .start_i       (hls_ntt_start),
   .done_o        (hls_ntt_done),
   .busy_o        (hls_ntt_busy),
+  .debug_we_i    (hls_ntt_debug_we),
   .debug_index_i (data_index_q[9:0]),
+  .debug_wdata_i (hls_ntt_debug_wdata),
   .debug_rdata_o (hls_ntt_debug_rdata),
   .interrupt_o   (hls_ntt_interrupt),
   .hls_present_o (hls_ntt_present)
@@ -259,9 +263,17 @@ module falcon_accelerator #(
     end
   endtask
 
-  // HLS NTT start pulse
+  // HLS NTT start pulse and debug memory write path
   // --------------------------------------------------------------------------
   assign hls_ntt_start = start_pulse && !busy_q && (mode_q == MODE_NTT_HLS);
+
+  assign hls_ntt_debug_we = reg_req_i.valid &&
+                            reg_req_i.write &&
+                            reg_addr == DATA_WDATA_OFFSET &&
+                            mode_q == MODE_NTT_HLS &&
+                            data_index_q[31:10] == 22'h0;
+
+  assign hls_ntt_debug_wdata = reg_req_i.wdata;
 
   // --------------------------------------------------------------------------
   // Main accelerator FSM
@@ -333,7 +345,7 @@ module falcon_accelerator #(
           end
 
           DATA_WDATA_OFFSET: begin
-            if (data_index_q[31:4] == 28'h0) begin
+            if ((mode_q != MODE_NTT_HLS) && data_index_q[31:4] == 28'h0) begin
               ntt_mem_q[data_index_q[3:0]] <= reg_req_i.wdata;
             end
           end

@@ -25,7 +25,9 @@ module falcon_ntt_hls_wrapper (
   output logic done_o,
   output logic busy_o,
 
+  input  logic        debug_we_i,
   input  logic [9:0]  debug_index_i,
+  input  logic [31:0] debug_wdata_i,
   output logic [31:0] debug_rdata_o,
 
   output logic interrupt_o,
@@ -340,6 +342,14 @@ module falcon_ntt_hls_wrapper (
       wr_beats_q        <= 9'h0;
       m_axi_gmem_BVALID <= 1'b0;
     end else begin
+      // Debug/software memory write path.
+      // The HLS datapath uses 16-bit coefficients on a 32-bit AXI word.
+      // Store the 16-bit coefficient duplicated in both halfwords, matching
+      // the format observed on HLS writes: 0xcccccccc.
+      if (debug_we_i) begin
+        hls_mem_q[debug_index_i] <= {debug_wdata_i[15:0], debug_wdata_i[15:0]};
+      end
+
       // Read address channel
       if (m_axi_gmem_ARVALID && m_axi_gmem_ARREADY) begin
         rd_active_q       <= 1'b1;
