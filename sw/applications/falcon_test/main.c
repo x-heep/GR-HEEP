@@ -87,6 +87,18 @@ static void print_vec(const char *name, uint32_t v[N])
     printf("\n");
 }
 
+static int falcon_wait_done_timeout(uint32_t timeout)
+{
+    while (timeout > 0u) {
+        if (falcon_is_done()) {
+            return 0;
+        }
+        timeout--;
+    }
+
+    return -1;
+}
+
 int main(void)
 {
     uint32_t input = 0x12345678u;
@@ -164,6 +176,34 @@ int main(void)
     }
 
     printf("Falcon NTT16 mode OK\n");
+
+    // Experimental HLS NTT control-path test.
+    // This validates CPU -> falcon_accelerator -> HLS wrapper control flow.
+    // It does not yet validate the mathematical NTT1024 result.
+    falcon_clear();
+
+    falcon_set_mode(FALCON_MODE_NTT_HLS);
+
+    printf("Falcon HLS NTT control mode start\n");
+
+    falcon_start();
+
+    if (falcon_wait_done_timeout(2000000u) != 0) {
+        printf("Falcon HLS NTT control mode TIMEOUT\n");
+        return EXIT_FAILURE;
+    }
+
+    result = falcon_get_output();
+
+    printf("HLS NTT control result:   0x%08x\n", result);
+    printf("HLS NTT control expected: 0x00000a11\n");
+
+    if (result != 0x00000A11u) {
+        printf("Falcon HLS NTT control mode FAILED\n");
+        return EXIT_FAILURE;
+    }
+
+    printf("Falcon HLS NTT control mode OK\n");
     printf("Falcon accelerator PQC_Falcon-like NTT16 test OK\n");
 
     return EXIT_SUCCESS;
