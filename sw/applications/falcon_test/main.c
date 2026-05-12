@@ -211,6 +211,12 @@ int main(void)
     }
     printf("\n");
 
+    printf("HLS NTT first 16 coeffs:");
+    for (uint32_t i = 0; i < N; i++) {
+        printf(" %u", falcon_read_coeff(i) & 0xFFFFu);
+    }
+    printf("\n");
+
     printf("Falcon accelerator PQC_Falcon-like NTT16 test OK\n");
 
     return EXIT_SUCCESS;
