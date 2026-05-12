@@ -5,12 +5,13 @@
 # Author(s): David Mallasen
 # Description: Pad configuration for GR-HEEP
 
-from x_heep_gen.pads.pad_ring import PadRing
-from x_heep_gen.pads.floorplan import Side
-from x_heep_gen.pads.pin import Input, Output, Inout
+from xheep import XHeep
+from pads.pad_ring import PadRing
+from pads.floorplan import Side
+from pads.pin import Input, Output, Inout
 
 
-def config() -> PadRing:
+def config(xheep: XHeep) -> PadRing:
     """
     Build and return the PadRing for the design, including pin definitions and pad mapping.
     """

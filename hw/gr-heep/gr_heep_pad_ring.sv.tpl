@@ -7,7 +7,7 @@
 // Description: GR-HEEP pad ring
 
 <%!
-    from x_heep_gen.pads.pin import Input, Output, Inout, PinDigital, Asignal
+    from pads.pin import Input, Output, Inout, PinDigital, Asignal
 %>
 
 <%

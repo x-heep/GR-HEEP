@@ -6,13 +6,13 @@
 # Description: X-HEEP and GR-HEEP configuration for mcu-gen.
 
 import re
-from x_heep_gen.xheep import XHeep
-from x_heep_gen.cpu.cpu import CPU
-from x_heep_gen.cv_x_if import CvXIf
-from x_heep_gen.bus_type import BusType
-from x_heep_gen.memory_ss.memory_ss import MemorySS
-from x_heep_gen.memory_ss.linker_section import LinkerSection
-from x_heep_gen.peripherals.base_peripherals import (
+from xheep import XHeep
+from cpu.cpu import CPU
+from cv_x_if import CvXIf
+from bus_type import BusType
+from memory_ss.memory_ss import MemorySS
+from memory_ss.linker_section import LinkerSection
+from peripherals.base_peripherals import (
     SOC_ctrl,
     Bootrom,
     SPI_flash,
@@ -26,7 +26,7 @@ from x_heep_gen.peripherals.base_peripherals import (
     GPIO_ao,
     W25Q128JW_Controller,
 )
-from x_heep_gen.peripherals.user_peripherals import (
+from peripherals.user_peripherals import (
     RV_plic,
     SPI_host,
     GPIO,
@@ -37,8 +37,8 @@ from x_heep_gen.peripherals.user_peripherals import (
     I2S,
     UART,
 )
-from x_heep_gen.peripherals.base_peripherals_domain import BasePeripheralDomain
-from x_heep_gen.peripherals.user_peripherals_domain import UserPeripheralDomain
+from peripherals.base_peripherals_domain import BasePeripheralDomain
+from peripherals.user_peripherals_domain import UserPeripheralDomain
 
 
 def config():

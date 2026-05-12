@@ -6,7 +6,7 @@
 // Author: Luigi Giuffrida, David Mallasen, Iñigo Díez de Ulzurrun
 // Description: GR-HEEP top-level module
 <%!
-    from x_heep_gen.pads.pin import Input, Output, Inout, PinDigital, Asignal
+    from pads.pin import Input, Output, Inout, PinDigital, Asignal
 %>
 <%
     attribute_bits = xheep.get_padring().attributes.get("bits")
