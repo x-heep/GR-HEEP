@@ -25,6 +25,9 @@ module falcon_ntt_hls_wrapper (
   output logic done_o,
   output logic busy_o,
 
+  input  logic [9:0]  debug_index_i,
+  output logic [31:0] debug_rdata_o,
+
   output logic interrupt_o,
   output logic hls_present_o
 );
@@ -46,6 +49,8 @@ module falcon_ntt_hls_wrapper (
       axi_addr_to_index = addr[11:2];
     end
   endfunction
+
+  assign debug_rdata_o = hls_mem_q[debug_index_i];
 
   // --------------------------------------------------------------------------
   // AXI-Lite control interface signals

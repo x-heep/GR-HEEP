@@ -204,6 +204,13 @@ int main(void)
     }
 
     printf("Falcon HLS NTT control mode OK\n");
+
+    printf("HLS NTT first 16 words:");
+    for (uint32_t i = 0; i < N; i++) {
+        printf(" %u", falcon_read_coeff(i));
+    }
+    printf("\n");
+
     printf("Falcon accelerator PQC_Falcon-like NTT16 test OK\n");
 
     return EXIT_SUCCESS;

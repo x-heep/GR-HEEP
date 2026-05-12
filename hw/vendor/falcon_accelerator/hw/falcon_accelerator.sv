@@ -109,6 +109,7 @@ module falcon_accelerator #(
   logic hls_ntt_start;
   logic hls_ntt_done;
   logic hls_ntt_busy;
+  logic [31:0] hls_ntt_debug_rdata;
 
   falcon_ntt_hls_wrapper u_falcon_ntt_hls_wrapper (
   .clk_i         (clk_i),
@@ -116,6 +117,8 @@ module falcon_accelerator #(
   .start_i       (hls_ntt_start),
   .done_o        (hls_ntt_done),
   .busy_o        (hls_ntt_busy),
+  .debug_index_i (data_index_q[9:0]),
+  .debug_rdata_o (hls_ntt_debug_rdata),
   .interrupt_o   (hls_ntt_interrupt),
   .hls_present_o (hls_ntt_present)
   );
@@ -436,7 +439,9 @@ module falcon_accelerator #(
         end
 
         DATA_RDATA_OFFSET: begin
-          if (data_index_q[31:4] == 28'h0) begin
+          if (mode_q == MODE_NTT_HLS) begin
+            reg_rsp_o.rdata = hls_ntt_debug_rdata;
+          end else if (data_index_q[31:4] == 28'h0) begin
             reg_rsp_o.rdata = ntt_mem_q[data_index_q[3:0]];
           end else begin
             reg_rsp_o.rdata = 32'h0;
@@ -473,7 +478,9 @@ module falcon_accelerator #(
         end
 
         DATA_RDATA_OFFSET: begin
-          if (data_index_q[31:4] == 28'h0) begin
+          if (mode_q == MODE_NTT_HLS) begin
+            obi_rdata_q <= hls_ntt_debug_rdata;
+          end else if (data_index_q[31:4] == 28'h0) begin
             obi_rdata_q <= ntt_mem_q[data_index_q[3:0]];
           end else begin
             obi_rdata_q <= 32'h0;
