@@ -23,8 +23,9 @@
 #define FALCON_STATUS_DONE_BIT 0
 #define FALCON_STATUS_BUSY_BIT 1
 
-#define FALCON_MODE_DUMMY 0
-#define FALCON_MODE_NTT   1
+#define FALCON_MODE_DUMMY   0
+#define FALCON_MODE_NTT     1
+#define FALCON_MODE_NTT_HLS 2
 
 void falcon_clear(void);
 void falcon_start(void);
