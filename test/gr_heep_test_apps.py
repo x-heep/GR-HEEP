@@ -61,7 +61,6 @@ WHITELIST_XHEEP = [
     "example_matadd_interleaved",
     "example_matfloat",
     "example_minimal",
-    "example_spidma_powergate",
     "example_tensor_format_conv",
     "example_timer_sdk",
     "example_xheep_config",
