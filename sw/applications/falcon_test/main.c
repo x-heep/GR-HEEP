@@ -8,6 +8,8 @@
 #define FALCON_Q0I 12287u
 #define LOGN       4u
 #define N          16u
+#define HLS_LOGN   10u
+#define HLS_N      1024u
 
 static const uint32_t GMb[16] = {
     4091u, 7888u, 11060u, 11208u,
@@ -184,8 +186,8 @@ int main(void)
 
     falcon_set_mode(FALCON_MODE_NTT_HLS);
 
-    for (uint32_t i = 0; i < N; i++) {
-        falcon_write_coeff(i, i + 1u);
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        falcon_write_coeff(i, mod_q(i + 1u));
     }
 
     printf("HLS NTT first 16 coeffs before:");
@@ -194,38 +196,28 @@ int main(void)
     }
     printf("\n");
 
-    printf("Falcon HLS NTT control mode start\n");
+    printf("Falcon HLS NTT1024 mode start\n");
 
     falcon_start();
-
-    if (falcon_wait_done_timeout(2000000u) != 0) {
-        printf("Falcon HLS NTT control mode TIMEOUT\n");
-        return EXIT_FAILURE;
-    }
+    falcon_wait_done();
 
     result = falcon_get_output();
 
     printf("HLS NTT control result:   0x%08x\n", result);
-    printf("HLS NTT control expected: 0x00000a11\n");
+    printf("HLS NTT control expected: 0x%08x\n", 0x00000A11u);
 
     if (result != 0x00000A11u) {
         printf("Falcon HLS NTT control mode FAILED\n");
         return EXIT_FAILURE;
     }
 
-    printf("Falcon HLS NTT control mode OK\n");
-
-    printf("HLS NTT first 16 words:");
-    for (uint32_t i = 0; i < N; i++) {
-        printf(" %u", falcon_read_coeff(i));
+    printf("HLS_NTT1024_OUTPUT_BEGIN\n");
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        printf("%u %u\n", i, falcon_read_coeff(i) & 0xFFFFu);
     }
-    printf("\n");
+    printf("HLS_NTT1024_OUTPUT_END\n");
 
-    printf("HLS NTT first 16 coeffs:");
-    for (uint32_t i = 0; i < N; i++) {
-        printf(" %u", falcon_read_coeff(i) & 0xFFFFu);
-    }
-    printf("\n");
+    printf("Falcon HLS NTT1024 mode produced output\n");
 
     printf("Falcon accelerator PQC_Falcon-like NTT16 test OK\n");
 

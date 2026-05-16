@@ -267,13 +267,24 @@ module falcon_accelerator #(
   // --------------------------------------------------------------------------
   assign hls_ntt_start = start_pulse && !busy_q && (mode_q == MODE_NTT_HLS);
 
-  assign hls_ntt_debug_we = reg_req_i.valid &&
-                            reg_req_i.write &&
-                            reg_addr == DATA_WDATA_OFFSET &&
-                            mode_q == MODE_NTT_HLS &&
-                            data_index_q[31:10] == 22'h0;
+  logic hls_ntt_debug_we_reg;
+  logic hls_ntt_debug_we_obi;
 
-  assign hls_ntt_debug_wdata = reg_req_i.wdata;
+  assign hls_ntt_debug_we_reg = reg_req_i.valid &&
+                                reg_req_i.write &&
+                                reg_addr == DATA_WDATA_OFFSET &&
+                                mode_q == MODE_NTT_HLS &&
+                                data_index_q[31:10] == 22'h0;
+
+  assign hls_ntt_debug_we_obi = obi_req_i.req &&
+                                obi_req_i.we &&
+                                obi_addr == DATA_WDATA_OFFSET &&
+                                mode_q == MODE_NTT_HLS &&
+                                data_index_q[31:10] == 22'h0;
+
+  assign hls_ntt_debug_we = hls_ntt_debug_we_reg || hls_ntt_debug_we_obi;
+
+  assign hls_ntt_debug_wdata = hls_ntt_debug_we_reg ? reg_req_i.wdata : obi_req_i.wdata;
 
   // --------------------------------------------------------------------------
   // Main accelerator FSM

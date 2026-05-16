@@ -42,9 +42,15 @@ module falcon_ntt_hls_wrapper (
 
   // --------------------------------------------------------------------------
   // Local memory used by the HLS AXI master.
-  // One 32-bit word is used per coefficient; the lower 16 bits hold data.
+  // Local AXI memory model: each 32-bit word stores two 16-bit coefficients.
   // --------------------------------------------------------------------------
   logic [31:0] hls_mem_q [0:HLS_N-1];
+
+  logic [8:0] debug_word_index;
+  logic       debug_coeff_high;
+
+  assign debug_word_index = debug_index_i[9:1];
+  assign debug_coeff_high = debug_index_i[0];
 
   function automatic logic [9:0] axi_addr_to_index(input logic [63:0] addr);
     begin
@@ -52,7 +58,13 @@ module falcon_ntt_hls_wrapper (
     end
   endfunction
 
-  assign debug_rdata_o = hls_mem_q[debug_index_i];
+  always_comb begin
+    if (debug_coeff_high) begin
+      debug_rdata_o = {16'h0000, hls_mem_q[debug_word_index][31:16]};
+    end else begin
+      debug_rdata_o = {16'h0000, hls_mem_q[debug_word_index][15:0]};
+    end
+  end
 
   // --------------------------------------------------------------------------
   // AXI-Lite control interface signals
@@ -227,8 +239,9 @@ module falcon_ntt_hls_wrapper (
         end
 
         CTRL_INIT_MEM: begin
-          hls_mem_q[init_idx_q] <= {16'h0000, 6'h00, init_idx_q} + 32'd1;
-
+          // Do not initialize hls_mem_q here.
+          // Software has already loaded the HLS input coefficients through
+          // the debug/software write path before asserting start_i.
           if (init_idx_q == 10'd1023) begin
             ctrl_state_q <= CTRL_WRITE_A_LO_AW;
           end else begin
@@ -343,11 +356,20 @@ module falcon_ntt_hls_wrapper (
       m_axi_gmem_BVALID <= 1'b0;
     end else begin
       // Debug/software memory write path.
-      // The HLS datapath uses 16-bit coefficients on a 32-bit AXI word.
-      // Store the 16-bit coefficient duplicated in both halfwords, matching
-      // the format observed on HLS writes: 0xcccccccc.
+      // Expose a coefficient-indexed view to software while the HLS AXI memory
+      // stores two 16-bit coefficients per 32-bit word.
       if (debug_we_i) begin
-        hls_mem_q[debug_index_i] <= {debug_wdata_i[15:0], debug_wdata_i[15:0]};
+        if (debug_coeff_high) begin
+          hls_mem_q[debug_word_index] <= {
+            debug_wdata_i[15:0],
+            hls_mem_q[debug_word_index][15:0]
+          };
+        end else begin
+          hls_mem_q[debug_word_index] <= {
+            hls_mem_q[debug_word_index][31:16],
+            debug_wdata_i[15:0]
+          };
+        end
       end
 
       // Read address channel
@@ -367,6 +389,7 @@ module falcon_ntt_hls_wrapper (
         end else begin
           rd_count_q        <= rd_count_q + 9'd1;
           rd_addr_q         <= rd_addr_q + 64'd4;
+
           m_axi_gmem_RDATA  <= hls_mem_q[axi_addr_to_index(rd_addr_q + 64'd4)];
           m_axi_gmem_RLAST  <= ((rd_count_q + 9'd2) >= rd_beats_q);
         end
