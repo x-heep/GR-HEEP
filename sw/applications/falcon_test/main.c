@@ -3,6 +3,8 @@
 #include <stdint.h>
 
 #include "falcon.h"
+#include "csr.h"
+#include "csr_registers.h"
 
 #define FALCON_Q   12289u
 #define FALCON_Q0I 12287u
@@ -10,6 +12,28 @@
 #define N          16u
 #define HLS_LOGN   10u
 #define HLS_N      1024u
+#define HLS_FULL_OUTPUT 0u
+
+static void perf_cycles_reset(void)
+{
+    uint32_t dummy;
+
+    CSR_SET_BITS(CSR_REG_MCOUNTINHIBIT, 0x1u);
+    CSR_WRITE(CSR_REG_MCYCLE, 0u);
+    CSR_CLEAR_BITS(CSR_REG_MCOUNTINHIBIT, 0x1u);
+
+    CSR_READ(CSR_REG_MCYCLE, &dummy);
+    (void)dummy;
+}
+
+static uint32_t perf_cycles_read(void)
+{
+    uint32_t cycles;
+
+    CSR_READ(CSR_REG_MCYCLE, &cycles);
+    return cycles;
+}
+
 
 static const uint32_t GMb[16] = {
     4091u, 7888u, 11060u, 11208u,
@@ -186,9 +210,19 @@ int main(void)
 
     falcon_set_mode(FALCON_MODE_NTT_HLS);
 
+    uint32_t hls_load_cycles;
+    uint32_t hls_exec_cycles;
+    uint32_t hls_read_cycles;
+    uint32_t hls_total_cycles;
+
+    perf_cycles_reset();
+    uint32_t hls_total_start = perf_cycles_read();
+
+    uint32_t hls_load_start = perf_cycles_read();
     for (uint32_t i = 0; i < HLS_N; i++) {
         falcon_write_coeff(i, mod_q(i + 1u));
     }
+    hls_load_cycles = perf_cycles_read() - hls_load_start;
 
     printf("HLS NTT first 16 coeffs before:");
     for (uint32_t i = 0; i < N; i++) {
@@ -198,10 +232,29 @@ int main(void)
 
     printf("Falcon HLS NTT1024 mode start\n");
 
+    uint32_t hls_exec_start = perf_cycles_read();
     falcon_start();
     falcon_wait_done();
+    hls_exec_cycles = perf_cycles_read() - hls_exec_start;
 
     result = falcon_get_output();
+
+    uint32_t hls_read_start = perf_cycles_read();
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        volatile uint32_t got = falcon_read_coeff(i) & 0xFFFFu;
+        (void)got;
+    }
+    hls_read_cycles = perf_cycles_read() - hls_read_start;
+
+    hls_total_cycles = perf_cycles_read() - hls_total_start;
+
+    uint32_t hls_total_core_cycles = hls_load_cycles + hls_exec_cycles + hls_read_cycles;
+
+    printf("HLS_NTT1024_LOAD_CYCLES %u\n", hls_load_cycles);
+    printf("HLS_NTT1024_EXEC_CYCLES %u\n", hls_exec_cycles);
+    printf("HLS_NTT1024_READ_CYCLES %u\n", hls_read_cycles);
+    printf("HLS_NTT1024_TOTAL_CORE_CYCLES %u\n", hls_total_core_cycles);
+    printf("HLS_NTT1024_TOTAL_MEASURED_CYCLES %u\n", hls_total_cycles);
 
     printf("HLS NTT control result:   0x%08x\n", result);
     printf("HLS NTT control expected: 0x%08x\n", 0x00000A11u);
@@ -211,11 +264,23 @@ int main(void)
         return EXIT_FAILURE;
     }
 
+    uint32_t hls_checksum = 0u;
+
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        hls_checksum = (hls_checksum + (falcon_read_coeff(i) & 0xFFFFu)) % FALCON_Q;
+    }
+
+    printf("HLS_NTT1024_CHECKSUM %u\n", hls_checksum);
+
+#if HLS_FULL_OUTPUT
     printf("HLS_NTT1024_OUTPUT_BEGIN\n");
     for (uint32_t i = 0; i < HLS_N; i++) {
         printf("%u %u\n", i, falcon_read_coeff(i) & 0xFFFFu);
     }
     printf("HLS_NTT1024_OUTPUT_END\n");
+#else
+    printf("HLS_NTT1024_OUTPUT_SKIPPED_FOR_PERFORMANCE\n");
+#endif
 
     printf("Falcon HLS NTT1024 mode produced output\n");
 
