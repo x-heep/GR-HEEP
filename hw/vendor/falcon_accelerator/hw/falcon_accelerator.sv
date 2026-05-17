@@ -53,17 +53,20 @@ module falcon_accelerator #(
   localparam int unsigned STATUS_BUSY_BIT = 1;
 
   // MODE values
-  localparam logic [31:0] MODE_DUMMY         = 32'd0;
-  localparam logic [31:0] MODE_NTT           = 32'd1;
-  localparam logic [31:0] MODE_NTT_HLS       = 32'd2;
-  localparam logic [31:0] MODE_POINTWISE_MUL = 32'd3;
+  localparam logic [31:0] MODE_DUMMY             = 32'd0;
+  localparam logic [31:0] MODE_NTT               = 32'd1;
+  localparam logic [31:0] MODE_NTT_HLS           = 32'd2;
+  localparam logic [31:0] MODE_POINTWISE_MUL     = 32'd3;
+  localparam logic [31:0] MODE_POINTWISE_MUL1024 = 32'd4;
 
   // Falcon parameters
   localparam logic [31:0] FALCON_Q   = 32'd12289;
   localparam logic [31:0] FALCON_Q0I = 32'd12287;
-  localparam int unsigned MAX_LOGN   = 4;
-  localparam int unsigned MAX_N      = 16;
-  localparam int unsigned LOCAL_MEM_N = 32;
+  localparam int unsigned MAX_LOGN       = 4;
+  localparam int unsigned MAX_N          = 16;
+  localparam int unsigned LOCAL_MEM_N    = 32;
+  localparam int unsigned POINTWISE_N    = 1024;
+  localparam int unsigned POINTWISE_MEM_N = 2048;
 
   // Keep W used. Dummy path remains 32-bit.
   localparam logic [31:0] DATA_MASK = (W >= 32) ? 32'hFFFF_FFFF : ((32'h1 << W) - 1);
@@ -90,6 +93,8 @@ module falcon_accelerator #(
   logic [31:0] data_index_q;
 
   logic [31:0] ntt_mem_q [0:LOCAL_MEM_N-1];
+  logic [31:0] pointwise_mem_q [0:POINTWISE_MEM_N-1];
+  logic [9:0]  pointwise_idx_q;
 
   logic        done_q;
   logic        busy_q;
@@ -314,7 +319,8 @@ module falcon_accelerator #(
       input_q      <= 32'h0;
       output_q     <= 32'h0;
       logn_q       <= 32'd4;
-      data_index_q <= 32'h0;
+      data_index_q    <= 32'h0;
+      pointwise_idx_q <= 10'h0;
 
       for (int unsigned k = 0; k < LOCAL_MEM_N; k++) begin
         ntt_mem_q[k] <= 32'h0;
@@ -372,7 +378,9 @@ module falcon_accelerator #(
           end
 
           DATA_WDATA_OFFSET: begin
-            if ((mode_q != MODE_NTT_HLS) && data_index_q[31:5] == 27'h0) begin
+            if ((mode_q == MODE_POINTWISE_MUL1024) && data_index_q[31:11] == 21'h0) begin
+              pointwise_mem_q[data_index_q[10:0]] <= reg_req_i.wdata;
+            end else if ((mode_q != MODE_NTT_HLS) && data_index_q[31:5] == 27'h0) begin
               ntt_mem_q[data_index_q[4:0]] <= reg_req_i.wdata;
             end
           end
@@ -387,6 +395,10 @@ module falcon_accelerator #(
         busy_q      <= 1'b1;
         done_q      <= 1'b0;
         cycle_cnt_q <= 8'h0;
+
+        if (mode_q == MODE_POINTWISE_MUL1024) begin
+          pointwise_idx_q <= 10'h0;
+        end
       end
 
       // Operation completion
@@ -397,6 +409,23 @@ module falcon_accelerator #(
             busy_q   <= 1'b0;
             done_q   <= 1'b1;
             output_q <= 32'h0000_0A11;
+          end
+        end else if (mode_q == MODE_POINTWISE_MUL1024) begin
+          // Iterative 1024-coefficient pointwise modular multiplication.
+          // A is stored in pointwise_mem_q[0..1023].
+          // B is stored in pointwise_mem_q[1024..2047].
+          // C overwrites pointwise_mem_q[0..1023].
+          pointwise_mem_q[pointwise_idx_q] <= mod_q(
+            mod_q(pointwise_mem_q[pointwise_idx_q]) *
+            mod_q(pointwise_mem_q[{1'b1, pointwise_idx_q}])
+          );
+
+          if (pointwise_idx_q == 10'd1023) begin
+            busy_q   <= 1'b0;
+            done_q   <= 1'b1;
+            output_q <= 32'h0000_0C11;
+          end else begin
+            pointwise_idx_q <= pointwise_idx_q + 10'd1;
           end
         end else begin
           // Local modes keep the previous fixed-latency behaviour.
@@ -485,6 +514,8 @@ module falcon_accelerator #(
         DATA_RDATA_OFFSET: begin
           if (mode_q == MODE_NTT_HLS) begin
             reg_rsp_o.rdata = hls_ntt_debug_rdata;
+          end else if ((mode_q == MODE_POINTWISE_MUL1024) && data_index_q[31:11] == 21'h0) begin
+            reg_rsp_o.rdata = pointwise_mem_q[data_index_q[10:0]];
           end else if (data_index_q[31:5] == 27'h0) begin
             reg_rsp_o.rdata = ntt_mem_q[data_index_q[4:0]];
           end else begin
@@ -524,6 +555,8 @@ module falcon_accelerator #(
         DATA_RDATA_OFFSET: begin
           if (mode_q == MODE_NTT_HLS) begin
             obi_rdata_q <= hls_ntt_debug_rdata;
+          end else if ((mode_q == MODE_POINTWISE_MUL1024) && data_index_q[31:11] == 21'h0) begin
+            obi_rdata_q <= pointwise_mem_q[data_index_q[10:0]];
           end else if (data_index_q[31:5] == 27'h0) begin
             obi_rdata_q <= ntt_mem_q[data_index_q[4:0]];
           end else begin

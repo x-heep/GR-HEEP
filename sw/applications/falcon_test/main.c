@@ -16,6 +16,9 @@
 #ifndef FALCON_MODE_POINTWISE_MUL
 #define FALCON_MODE_POINTWISE_MUL 3u
 #endif
+#ifndef FALCON_MODE_POINTWISE_MUL1024
+#define FALCON_MODE_POINTWISE_MUL1024 4u
+#endif
 
 static void perf_cycles_reset(void)
 {
@@ -114,6 +117,21 @@ static void golden_pointwise_mul(uint32_t a[N], uint32_t b[N], uint32_t out[N])
     }
 }
 
+static uint32_t pointwise1024_a(uint32_t i)
+{
+    return mod_q(12000u + (i * 13u));
+}
+
+static uint32_t pointwise1024_b(uint32_t i)
+{
+    return mod_q(11000u + (i * 17u));
+}
+
+static uint32_t golden_pointwise1024(uint32_t i)
+{
+    return mod_q(pointwise1024_a(i) * pointwise1024_b(i));
+}
+
 static void print_vec(const char *name, uint32_t v[N])
 {
     printf("%s:", name);
@@ -174,7 +192,7 @@ int main(void)
         return EXIT_FAILURE;
     }
 
-    printf("Falcon dummy mode OK\n");
+    printf("Dummy OK\n");
 
     // Falcon-like NTT16 mode test
     falcon_clear();
@@ -191,17 +209,12 @@ int main(void)
     falcon_set_logn(LOGN);
     falcon_set_length(N);
 
-    print_vec("NTT16 input", input_vec);
-
     falcon_start();
     falcon_wait_done();
 
     for (uint32_t i = 0; i < N; i++) {
         hw[i] = falcon_read_coeff(i);
     }
-
-    print_vec("NTT16 result  ", hw);
-    print_vec("NTT16 expected", expected);
 
     for (uint32_t i = 0; i < N; i++) {
         if (hw[i] != expected[i]) {
@@ -211,7 +224,7 @@ int main(void)
         }
     }
 
-    printf("Falcon NTT16 mode OK\n");
+    printf("NTT16 OK\n");
 
     // Pointwise modular multiplication primitive test.
     // Vector A is stored in indices 0..15 and vector B in indices 16..31.
@@ -237,9 +250,6 @@ int main(void)
     falcon_set_mode(FALCON_MODE_POINTWISE_MUL);
     falcon_set_length(N);
 
-    print_vec("Pointwise MUL16 input A", mul_a);
-    print_vec("Pointwise MUL16 input B", mul_b);
-
     perf_cycles_reset();
     uint32_t mul_exec_start = perf_cycles_read();
     falcon_start();
@@ -249,11 +259,11 @@ int main(void)
     result = falcon_get_output();
 
     printf("POINTWISE_MUL16_EXEC_CYCLES %u\n", mul_exec_cycles);
-    printf("Pointwise MUL16 control result:   0x%08x\n", result);
-    printf("Pointwise MUL16 control expected: 0x%08x\n", 0x00000B11u);
+    printf("PW16 result: 0x%08x\n", result);
+    printf("PW16 expected: 0x%08x\n", 0x00000B11u);
 
     if (result != 0x00000B11u) {
-        printf("Falcon pointwise MUL16 mode FAILED\n");
+        printf("PW16 FAILED\n");
         return EXIT_FAILURE;
     }
 
@@ -261,19 +271,86 @@ int main(void)
         mul_hw[i] = falcon_read_coeff(i);
     }
 
-    print_vec("Pointwise MUL16 result  ", mul_hw);
-    print_vec("Pointwise MUL16 expected", mul_expected);
-
     for (uint32_t i = 0; i < N; i++) {
         if (mul_hw[i] != mul_expected[i]) {
-            printf("Pointwise MUL16 mismatch at index %u: got %u expected %u\n",
+            printf("PW16 mismatch %u: got %u exp %u\n",
                    i, mul_hw[i], mul_expected[i]);
-            printf("Falcon pointwise MUL16 mode FAILED\n");
+            printf("PW16 FAILED\n");
             return EXIT_FAILURE;
         }
     }
 
-    printf("Falcon pointwise MUL16 mode OK\n");
+    printf("PW16 OK\n");
+
+    // Pointwise modular multiplication 1024 primitive test.
+    // Vector A is stored in indices 0..1023 and vector B in indices 1024..2047.
+    // The accelerator writes C[i] = A[i] * B[i] mod q back to indices 0..1023.
+    falcon_clear();
+    falcon_set_mode(FALCON_MODE_POINTWISE_MUL1024);
+    falcon_set_length(HLS_N);
+
+    perf_cycles_reset();
+    uint32_t pw1024_total_start = perf_cycles_read();
+
+    uint32_t pw1024_load_start = perf_cycles_read();
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        falcon_write_coeff(i, pointwise1024_a(i));
+        falcon_write_coeff(i + HLS_N, pointwise1024_b(i));
+    }
+    uint32_t pw1024_load_cycles = perf_cycles_read() - pw1024_load_start;
+
+    uint32_t pw1024_exec_start = perf_cycles_read();
+    falcon_start();
+    falcon_wait_done();
+    uint32_t pw1024_exec_cycles = perf_cycles_read() - pw1024_exec_start;
+
+    result = falcon_get_output();
+
+    printf("POINTWISE_MUL1024_EXEC_CYCLES %u\n", pw1024_exec_cycles);
+    printf("PW1024 result: 0x%08x\n", result);
+    printf("PW1024 expected: 0x%08x\n", 0x00000C11u);
+
+    if (result != 0x00000C11u) {
+        printf("PW1024 FAILED\n");
+        return EXIT_FAILURE;
+    }
+
+    uint32_t pw1024_errors = 0u;
+    uint32_t pw1024_checksum = 0u;
+
+    uint32_t pw1024_read_start = perf_cycles_read();
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        uint32_t got = falcon_read_coeff(i);
+        uint32_t exp = golden_pointwise1024(i);
+
+        pw1024_checksum = (pw1024_checksum + got) % FALCON_Q;
+
+        if (got != exp) {
+            if (pw1024_errors < 8u) {
+                printf("PW1024 mismatch %u: got %u exp %u\n",
+                       i, got, exp);
+            }
+            pw1024_errors++;
+        }
+    }
+    uint32_t pw1024_read_cycles = perf_cycles_read() - pw1024_read_start;
+
+    uint32_t pw1024_total_measured_cycles = perf_cycles_read() - pw1024_total_start;
+    uint32_t pw1024_total_core_cycles =
+        pw1024_load_cycles + pw1024_exec_cycles + pw1024_read_cycles;
+
+    printf("POINTWISE_MUL1024_LOAD_CYCLES %u\n", pw1024_load_cycles);
+    printf("POINTWISE_MUL1024_READ_CYCLES %u\n", pw1024_read_cycles);
+    printf("POINTWISE_MUL1024_TOTAL_CORE_CYCLES %u\n", pw1024_total_core_cycles);
+    printf("POINTWISE_MUL1024_TOTAL_MEASURED_CYCLES %u\n", pw1024_total_measured_cycles);
+    printf("POINTWISE_MUL1024_CHECKSUM %u\n", pw1024_checksum);
+
+    if (pw1024_errors != 0u) {
+        printf("PW1024 FAILED %u\n", pw1024_errors);
+        return EXIT_FAILURE;
+    }
+
+    printf("PW1024 OK\n");
 
     // Experimental HLS NTT control-path test.
     // This validates CPU -> falcon_accelerator -> HLS wrapper control flow.
