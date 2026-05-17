@@ -13,6 +13,9 @@
 #define HLS_LOGN   10u
 #define HLS_N      1024u
 #define HLS_FULL_OUTPUT 0u
+#ifndef FALCON_MODE_POINTWISE_MUL
+#define FALCON_MODE_POINTWISE_MUL 3u
+#endif
 
 static void perf_cycles_reset(void)
 {
@@ -101,6 +104,13 @@ static void golden_mq_ntt(uint32_t a[N])
         }
 
         t = ht;
+    }
+}
+
+static void golden_pointwise_mul(uint32_t a[N], uint32_t b[N], uint32_t out[N])
+{
+    for (uint32_t i = 0; i < N; i++) {
+        out[i] = mod_q(mod_q(a[i]) * mod_q(b[i]));
     }
 }
 
@@ -202,6 +212,63 @@ int main(void)
     }
 
     printf("Falcon NTT16 mode OK\n");
+
+    // Pointwise modular multiplication primitive test.
+    // Vector A is stored in indices 0..15 and vector B in indices 16..31.
+    // The accelerator writes C[i] = A[i] * B[i] mod q back to indices 0..15.
+    falcon_clear();
+
+    uint32_t mul_a[N];
+    uint32_t mul_b[N];
+    uint32_t mul_expected[N];
+    uint32_t mul_hw[N];
+
+    for (uint32_t i = 0; i < N; i++) {
+        mul_a[i] = mod_q((i + 1u) * 3u);
+        mul_b[i] = mod_q((i + 5u) * 7u);
+
+        falcon_write_coeff(i, mul_a[i]);
+        falcon_write_coeff(i + N, mul_b[i]);
+    }
+
+    golden_pointwise_mul(mul_a, mul_b, mul_expected);
+
+    falcon_set_mode(FALCON_MODE_POINTWISE_MUL);
+    falcon_set_length(N);
+
+    print_vec("Pointwise MUL16 input A", mul_a);
+    print_vec("Pointwise MUL16 input B", mul_b);
+
+    falcon_start();
+    falcon_wait_done();
+
+    result = falcon_get_output();
+
+    printf("Pointwise MUL16 control result:   0x%08x\n", result);
+    printf("Pointwise MUL16 control expected: 0x%08x\n", 0x00000B11u);
+
+    if (result != 0x00000B11u) {
+        printf("Falcon pointwise MUL16 mode FAILED\n");
+        return EXIT_FAILURE;
+    }
+
+    for (uint32_t i = 0; i < N; i++) {
+        mul_hw[i] = falcon_read_coeff(i);
+    }
+
+    print_vec("Pointwise MUL16 result  ", mul_hw);
+    print_vec("Pointwise MUL16 expected", mul_expected);
+
+    for (uint32_t i = 0; i < N; i++) {
+        if (mul_hw[i] != mul_expected[i]) {
+            printf("Pointwise MUL16 mismatch at index %u: got %u expected %u\n",
+                   i, mul_hw[i], mul_expected[i]);
+            printf("Falcon pointwise MUL16 mode FAILED\n");
+            return EXIT_FAILURE;
+        }
+    }
+
+    printf("Falcon pointwise MUL16 mode OK\n");
 
     // Experimental HLS NTT control-path test.
     // This validates CPU -> falcon_accelerator -> HLS wrapper control flow.

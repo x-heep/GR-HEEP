@@ -53,15 +53,17 @@ module falcon_accelerator #(
   localparam int unsigned STATUS_BUSY_BIT = 1;
 
   // MODE values
-  localparam logic [31:0] MODE_DUMMY   = 32'd0;
-  localparam logic [31:0] MODE_NTT     = 32'd1;
-  localparam logic [31:0] MODE_NTT_HLS = 32'd2;
+  localparam logic [31:0] MODE_DUMMY         = 32'd0;
+  localparam logic [31:0] MODE_NTT           = 32'd1;
+  localparam logic [31:0] MODE_NTT_HLS       = 32'd2;
+  localparam logic [31:0] MODE_POINTWISE_MUL = 32'd3;
 
   // Falcon parameters
   localparam logic [31:0] FALCON_Q   = 32'd12289;
   localparam logic [31:0] FALCON_Q0I = 32'd12287;
   localparam int unsigned MAX_LOGN   = 4;
   localparam int unsigned MAX_N      = 16;
+  localparam int unsigned LOCAL_MEM_N = 32;
 
   // Keep W used. Dummy path remains 32-bit.
   localparam logic [31:0] DATA_MASK = (W >= 32) ? 32'hFFFF_FFFF : ((32'h1 << W) - 1);
@@ -87,7 +89,7 @@ module falcon_accelerator #(
   logic [31:0] logn_q;
   logic [31:0] data_index_q;
 
-  logic [31:0] ntt_mem_q [0:MAX_N-1];
+  logic [31:0] ntt_mem_q [0:LOCAL_MEM_N-1];
 
   logic        done_q;
   logic        busy_q;
@@ -263,6 +265,20 @@ module falcon_accelerator #(
     end
   endtask
 
+  task automatic compute_pointwise_mul_local();
+    logic [31:0] a;
+    logic [31:0] b;
+    logic [31:0] product;
+    begin
+      for (int unsigned k = 0; k < MAX_N; k++) begin
+        a = mod_q(ntt_mem_q[k]);
+        b = mod_q(ntt_mem_q[k + MAX_N]);
+        product = a * b;
+        ntt_mem_q[k] <= mod_q(product);
+      end
+    end
+  endtask
+
   // HLS NTT start pulse and debug memory write path
   // --------------------------------------------------------------------------
   assign hls_ntt_start = start_pulse && !busy_q && (mode_q == MODE_NTT_HLS);
@@ -300,7 +316,7 @@ module falcon_accelerator #(
       logn_q       <= 32'd4;
       data_index_q <= 32'h0;
 
-      for (int unsigned k = 0; k < MAX_N; k++) begin
+      for (int unsigned k = 0; k < LOCAL_MEM_N; k++) begin
         ntt_mem_q[k] <= 32'h0;
       end
 
@@ -356,8 +372,8 @@ module falcon_accelerator #(
           end
 
           DATA_WDATA_OFFSET: begin
-            if ((mode_q != MODE_NTT_HLS) && data_index_q[31:4] == 28'h0) begin
-              ntt_mem_q[data_index_q[3:0]] <= reg_req_i.wdata;
+            if ((mode_q != MODE_NTT_HLS) && data_index_q[31:5] == 27'h0) begin
+              ntt_mem_q[data_index_q[4:0]] <= reg_req_i.wdata;
             end
           end
 
@@ -398,6 +414,11 @@ module falcon_accelerator #(
               MODE_NTT: begin
                 compute_ntt_local();
                 output_q <= 32'h0000_0F11;
+              end
+
+              MODE_POINTWISE_MUL: begin
+                compute_pointwise_mul_local();
+                output_q <= 32'h0000_0B11;
               end
 
               default: begin
@@ -464,8 +485,8 @@ module falcon_accelerator #(
         DATA_RDATA_OFFSET: begin
           if (mode_q == MODE_NTT_HLS) begin
             reg_rsp_o.rdata = hls_ntt_debug_rdata;
-          end else if (data_index_q[31:4] == 28'h0) begin
-            reg_rsp_o.rdata = ntt_mem_q[data_index_q[3:0]];
+          end else if (data_index_q[31:5] == 27'h0) begin
+            reg_rsp_o.rdata = ntt_mem_q[data_index_q[4:0]];
           end else begin
             reg_rsp_o.rdata = 32'h0;
           end
@@ -503,8 +524,8 @@ module falcon_accelerator #(
         DATA_RDATA_OFFSET: begin
           if (mode_q == MODE_NTT_HLS) begin
             obi_rdata_q <= hls_ntt_debug_rdata;
-          end else if (data_index_q[31:4] == 28'h0) begin
-            obi_rdata_q <= ntt_mem_q[data_index_q[3:0]];
+          end else if (data_index_q[31:5] == 27'h0) begin
+            obi_rdata_q <= ntt_mem_q[data_index_q[4:0]];
           end else begin
             obi_rdata_q <= 32'h0;
           end
