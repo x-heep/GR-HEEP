@@ -224,8 +224,9 @@ int main(void)
     uint32_t mul_hw[N];
 
     for (uint32_t i = 0; i < N; i++) {
-        mul_a[i] = mod_q((i + 1u) * 3u);
-        mul_b[i] = mod_q((i + 5u) * 7u);
+        // Use values close to q to exercise the modular reduction path.
+        mul_a[i] = mod_q(12000u + (i * 13u));
+        mul_b[i] = mod_q(11000u + (i * 17u));
 
         falcon_write_coeff(i, mul_a[i]);
         falcon_write_coeff(i + N, mul_b[i]);
@@ -239,11 +240,15 @@ int main(void)
     print_vec("Pointwise MUL16 input A", mul_a);
     print_vec("Pointwise MUL16 input B", mul_b);
 
+    perf_cycles_reset();
+    uint32_t mul_exec_start = perf_cycles_read();
     falcon_start();
     falcon_wait_done();
+    uint32_t mul_exec_cycles = perf_cycles_read() - mul_exec_start;
 
     result = falcon_get_output();
 
+    printf("POINTWISE_MUL16_EXEC_CYCLES %u\n", mul_exec_cycles);
     printf("Pointwise MUL16 control result:   0x%08x\n", result);
     printf("Pointwise MUL16 control expected: 0x%08x\n", 0x00000B11u);
 
