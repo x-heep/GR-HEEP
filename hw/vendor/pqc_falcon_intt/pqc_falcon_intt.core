@@ -1,0 +1,29 @@
+CAPI=2:
+name: tfm:crypto:pqc_falcon_intt:0.1.0
+filesets:
+  rtl:
+    files:
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_control_s_axi.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_gmem_m_axi.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_am_addmul_15s_17s_14ns_32_4_1.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_ama_submuladd_1ns_16ns_14ns_22ns_30_4_1.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_flow_control_loop_pipe_sequential_init.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_iNTT_Pipeline_1.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_in_buf_RAM_AUTO_1R1W.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_intt_stage.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_intt_stage_iGMb_ROM_AUTO_1R.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_mac_muladd_10s_10s_10ns_10_4_1.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_mac_muladd_16ns_14ns_32s_32_4_1.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_mul_16s_15ns_16_1_1.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_out_copy_1.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_out_copy_1_Pipeline_VITIS_LOOP_78_2.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_stage0_RAM_AUTO_1R1W.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_udiv_10ns_10s_10_14_1.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_intt_stage_iGMb_ROM_AUTO_1R.dat:
+          file_type: user
+    file_type: verilogSource
+targets:
+  default:
+    filesets:
+      - rtl

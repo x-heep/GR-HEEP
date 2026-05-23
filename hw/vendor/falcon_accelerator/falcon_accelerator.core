@@ -8,8 +8,10 @@ filesets:
     depend:
     - polito:isa-lab:cnt
     - tfm:crypto:pqc_falcon_ntt
+    - tfm:crypto:pqc_falcon_intt
     files:
     - hw/falcon_ntt_hls_wrapper.sv
+    - hw/falcon_intt_hls_wrapper.sv
     - hw/falcon_accelerator.sv
     file_type: systemVerilogSource
 
