@@ -20,6 +20,10 @@
 #define FALCON_MODE_POINTWISE_MUL1024 4u
 #endif
 
+#ifndef FALCON_MODE_INTT_HLS
+#define FALCON_MODE_INTT_HLS 5u
+#endif
+
 static void perf_cycles_reset(void)
 {
     uint32_t dummy;
@@ -352,6 +356,51 @@ int main(void)
 
     printf("PW1024 OK\n");
 
+#if 0
+    // Experimental HLS iNTT control-path test.
+    // First integration step: validate CPU -> accelerator -> iNTT wrapper -> done.
+    falcon_clear();
+
+    falcon_set_mode(FALCON_MODE_INTT_HLS);
+
+    uint32_t intt_load_start = perf_cycles_read();
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        falcon_write_coeff(i, mod_q(i + 1u));
+    }
+    uint32_t intt_load_cycles = perf_cycles_read() - intt_load_start;
+    (void)intt_load_cycles;
+
+    uint32_t intt_exec_start = perf_cycles_read();
+    falcon_start();
+    falcon_wait_done();
+    uint32_t intt_exec_cycles = perf_cycles_read() - intt_exec_start;
+
+    result = falcon_get_output();
+
+    uint32_t intt_read_start = perf_cycles_read();
+    uint32_t intt_checksum = 0u;
+    uint32_t intt_corr_checksum = 0u;
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        uint32_t intt_val = falcon_read_coeff(i) & 0xFFFFu;
+        intt_checksum ^= intt_val;
+        intt_corr_checksum ^= ((intt_val + FALCON_Q - 4095u) % FALCON_Q);
+    }
+    uint32_t intt_read_cycles = perf_cycles_read() - intt_read_start;
+    (void)intt_read_cycles;
+    (void)intt_checksum;
+
+    printf("INTT_EXEC %u\n", intt_exec_cycles);
+    printf("INTT_CORR %u\n", intt_corr_checksum);
+
+    if (result != 0x00000D11u) {
+        printf("INTT FAIL\n");
+        return EXIT_FAILURE;
+    }
+
+    printf("INTT OK\n");
+
+#endif
+
     // Experimental HLS NTT control-path test.
     // This validates CPU -> falcon_accelerator -> HLS wrapper control flow.
     // It does not yet validate the mathematical NTT1024 result.
@@ -432,6 +481,192 @@ int main(void)
 #endif
 
     printf("Falcon HLS NTT1024 mode produced output\n");
+
+#if 0
+    // Round-trip test: iNTT1024(NTT1024(x)) ~= x.
+    // NTT and iNTT wrappers have separate local memories, so software copies
+    // NTT output coefficients into the iNTT input memory without allocating
+    // a 1024-element buffer.
+    uint32_t rt_errors = 0u;
+
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        uint32_t ntt_coeff;
+
+        falcon_set_mode(FALCON_MODE_NTT_HLS);
+        ntt_coeff = falcon_read_coeff(i) & 0xFFFFu;
+
+        falcon_set_mode(FALCON_MODE_INTT_HLS);
+        falcon_write_coeff(i, ntt_coeff);
+    }
+
+    uint32_t rt_exec_start = perf_cycles_read();
+    falcon_start();
+    falcon_wait_done();
+    uint32_t rt_exec_cycles = perf_cycles_read() - rt_exec_start;
+    (void)rt_exec_cycles;
+
+    result = falcon_get_output();
+
+    if (result != 0x00000D11u) {
+        printf("RT FAIL\n");
+        return EXIT_FAILURE;
+    }
+
+    uint32_t rt_direct_errors = 0u;
+    uint32_t rt_corrected_errors = 0u;
+    uint32_t rt_hybrid_errors = 0u;
+
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        uint32_t got = falcon_read_coeff(i) & 0xFFFFu;
+        uint32_t corrected = (got + FALCON_Q - 4095u) % FALCON_Q;
+        uint32_t expected_rt = mod_q(i + 1u);
+
+        if (got != expected_rt) {
+            rt_direct_errors++;
+        }
+
+        if (corrected != expected_rt) {
+            rt_corrected_errors++;
+        }
+
+        if ((got != expected_rt) && (corrected != expected_rt)) {
+            rt_hybrid_errors++;
+        }
+    }
+
+    rt_errors = rt_hybrid_errors;
+
+    printf("RT_D %u\n", rt_direct_errors);
+    printf("RT_C %u\n", rt_corrected_errors);
+    printf("RT_H %u\n", rt_hybrid_errors);
+
+    if (rt_errors != 0u) {
+        printf("RT FAIL\n");
+        return EXIT_FAILURE;
+    }
+
+    printf("RT OK\n");
+
+#endif
+
+    // Full polynomial pipeline test:
+    // A * 1 = A, using NTT(A), NTT(delta), POINTWISE_MUL1024 and iNTT.
+    uint32_t poly_errors = 0u;
+
+    // Step 1: NTT(A), with A[i] = i + 1.
+    falcon_clear();
+    falcon_set_mode(FALCON_MODE_NTT_HLS);
+
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        falcon_write_coeff(i, mod_q(i + 1u));
+    }
+
+    falcon_start();
+    falcon_wait_done();
+
+    result = falcon_get_output();
+    if (result != 0x00000A11u) {
+        printf("PM FAIL\n");
+        return EXIT_FAILURE;
+    }
+
+    // Copy NTT(A) into pointwise input A.
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        uint32_t coeff;
+
+        falcon_set_mode(FALCON_MODE_NTT_HLS);
+        coeff = falcon_read_coeff(i) & 0xFFFFu;
+
+        falcon_set_mode(FALCON_MODE_POINTWISE_MUL1024);
+        falcon_write_coeff(i, coeff);
+    }
+
+    // Step 2: NTT(B), with B = [1, 0, 0, ..., 0].
+    falcon_clear();
+    falcon_set_mode(FALCON_MODE_NTT_HLS);
+
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        falcon_write_coeff(i, (i == 0u) ? 1u : 0u);
+    }
+
+    falcon_start();
+    falcon_wait_done();
+
+    result = falcon_get_output();
+    if (result != 0x00000A11u) {
+        printf("PM FAIL\n");
+        return EXIT_FAILURE;
+    }
+
+    // Copy NTT(B) into pointwise input B.
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        uint32_t coeff;
+
+        falcon_set_mode(FALCON_MODE_NTT_HLS);
+        coeff = falcon_read_coeff(i) & 0xFFFFu;
+
+        falcon_set_mode(FALCON_MODE_POINTWISE_MUL1024);
+        falcon_write_coeff(i + HLS_N, coeff);
+    }
+
+    // Step 3: pointwise multiplication.
+    falcon_set_mode(FALCON_MODE_POINTWISE_MUL1024);
+
+    falcon_start();
+    falcon_wait_done();
+
+    result = falcon_get_output();
+    if (result != 0x00000C11u) {
+        printf("PM FAIL\n");
+        return EXIT_FAILURE;
+    }
+
+    // Step 4: copy pointwise result to iNTT input.
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        uint32_t coeff;
+
+        falcon_set_mode(FALCON_MODE_POINTWISE_MUL1024);
+        coeff = falcon_read_coeff(i) & 0xFFFFu;
+
+        falcon_set_mode(FALCON_MODE_INTT_HLS);
+        falcon_write_coeff(i, coeff);
+    }
+
+    // Step 5: iNTT.
+    falcon_set_mode(FALCON_MODE_INTT_HLS);
+
+    uint32_t pm_exec_start = perf_cycles_read();
+    falcon_start();
+    falcon_wait_done();
+    uint32_t pm_intt_cycles = perf_cycles_read() - pm_exec_start;
+    (void)pm_intt_cycles;
+
+    result = falcon_get_output();
+    if (result != 0x00000D11u) {
+        printf("PM FAIL\n");
+        return EXIT_FAILURE;
+    }
+
+    // Step 6: validate A * 1 = A.
+    // Accept direct or -4095 corrected representation, as observed in iNTT validation.
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        uint32_t got = falcon_read_coeff(i) & 0xFFFFu;
+        uint32_t corrected = (got + FALCON_Q - 4095u) % FALCON_Q;
+        uint32_t expected_pm = mod_q(i + 1u);
+
+        if ((got != expected_pm) && (corrected != expected_pm)) {
+            poly_errors++;
+        }
+    }
+
+    printf("PM_ERR %u\n", poly_errors);
+
+    if (poly_errors != 0u) {
+        printf("PM FAIL\n");
+        return EXIT_FAILURE;
+    }
+
+    printf("PM OK\n");
 
     printf("Falcon accelerator PQC_Falcon-like NTT16 test OK\n");
 

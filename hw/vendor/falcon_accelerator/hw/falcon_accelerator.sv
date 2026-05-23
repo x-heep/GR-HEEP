@@ -58,6 +58,7 @@ module falcon_accelerator #(
   localparam logic [31:0] MODE_NTT_HLS           = 32'd2;
   localparam logic [31:0] MODE_POINTWISE_MUL     = 32'd3;
   localparam logic [31:0] MODE_POINTWISE_MUL1024 = 32'd4;
+  localparam logic [31:0] MODE_INTT_HLS          = 32'd5;
 
   // Falcon parameters
   localparam logic [31:0] FALCON_Q   = 32'd12289;
@@ -132,6 +133,31 @@ module falcon_accelerator #(
   .debug_rdata_o (hls_ntt_debug_rdata),
   .interrupt_o   (hls_ntt_interrupt),
   .hls_present_o (hls_ntt_present)
+  );
+
+  // PQC_Falcon HLS iNTT IP structural instance.
+  logic hls_intt_interrupt;
+  logic hls_intt_present;
+
+  logic hls_intt_start;
+  logic hls_intt_done;
+  logic hls_intt_busy;
+  logic hls_intt_debug_we;
+  logic [31:0] hls_intt_debug_wdata;
+  logic [31:0] hls_intt_debug_rdata;
+
+  falcon_intt_hls_wrapper u_falcon_intt_hls_wrapper (
+  .clk_i         (clk_i),
+  .rst_ni        (rst_ni),
+  .start_i       (hls_intt_start),
+  .done_o        (hls_intt_done),
+  .busy_o        (hls_intt_busy),
+  .debug_we_i    (hls_intt_debug_we),
+  .debug_index_i (data_index_q[9:0]),
+  .debug_wdata_i (hls_intt_debug_wdata),
+  .debug_rdata_o (hls_intt_debug_rdata),
+  .interrupt_o   (hls_intt_interrupt),
+  .hls_present_o (hls_intt_present)
   );
 
   // Address decoding
@@ -286,10 +312,13 @@ module falcon_accelerator #(
 
   // HLS NTT start pulse and debug memory write path
   // --------------------------------------------------------------------------
-  assign hls_ntt_start = start_pulse && !busy_q && (mode_q == MODE_NTT_HLS);
+  assign hls_ntt_start  = start_pulse && !busy_q && (mode_q == MODE_NTT_HLS);
+  assign hls_intt_start = start_pulse && !busy_q && (mode_q == MODE_INTT_HLS);
 
   logic hls_ntt_debug_we_reg;
   logic hls_ntt_debug_we_obi;
+  logic hls_intt_debug_we_reg;
+  logic hls_intt_debug_we_obi;
 
   assign hls_ntt_debug_we_reg = reg_req_i.valid &&
                                 reg_req_i.write &&
@@ -303,9 +332,23 @@ module falcon_accelerator #(
                                 mode_q == MODE_NTT_HLS &&
                                 data_index_q[31:10] == 22'h0;
 
-  assign hls_ntt_debug_we = hls_ntt_debug_we_reg || hls_ntt_debug_we_obi;
+  assign hls_intt_debug_we_reg = reg_req_i.valid &&
+                                 reg_req_i.write &&
+                                 reg_addr == DATA_WDATA_OFFSET &&
+                                 mode_q == MODE_INTT_HLS &&
+                                 data_index_q[31:10] == 22'h0;
 
-  assign hls_ntt_debug_wdata = hls_ntt_debug_we_reg ? reg_req_i.wdata : obi_req_i.wdata;
+  assign hls_intt_debug_we_obi = obi_req_i.req &&
+                                 obi_req_i.we &&
+                                 obi_addr == DATA_WDATA_OFFSET &&
+                                 mode_q == MODE_INTT_HLS &&
+                                 data_index_q[31:10] == 22'h0;
+
+  assign hls_ntt_debug_we  = hls_ntt_debug_we_reg  || hls_ntt_debug_we_obi;
+  assign hls_intt_debug_we = hls_intt_debug_we_reg || hls_intt_debug_we_obi;
+
+  assign hls_ntt_debug_wdata  = hls_ntt_debug_we_reg  ? reg_req_i.wdata : obi_req_i.wdata;
+  assign hls_intt_debug_wdata = hls_intt_debug_we_reg ? reg_req_i.wdata : obi_req_i.wdata;
 
   // --------------------------------------------------------------------------
   // Main accelerator FSM
@@ -380,7 +423,7 @@ module falcon_accelerator #(
           DATA_WDATA_OFFSET: begin
             if ((mode_q == MODE_POINTWISE_MUL1024) && data_index_q[31:11] == 21'h0) begin
               pointwise_mem_q[data_index_q[10:0]] <= reg_req_i.wdata;
-            end else if ((mode_q != MODE_NTT_HLS) && data_index_q[31:5] == 27'h0) begin
+            end else if ((mode_q != MODE_NTT_HLS) && (mode_q != MODE_INTT_HLS) && data_index_q[31:5] == 27'h0) begin
               ntt_mem_q[data_index_q[4:0]] <= reg_req_i.wdata;
             end
           end
@@ -404,11 +447,18 @@ module falcon_accelerator #(
       // Operation completion
       if (busy_q) begin
         if (mode_q == MODE_NTT_HLS) begin
-          // Experimental HLS mode: completion is driven by the HLS wrapper.
+          // Experimental HLS NTT mode: completion is driven by the HLS wrapper.
           if (hls_ntt_done) begin
             busy_q   <= 1'b0;
             done_q   <= 1'b1;
             output_q <= 32'h0000_0A11;
+          end
+        end else if (mode_q == MODE_INTT_HLS) begin
+          // Experimental HLS iNTT mode: completion is driven by the HLS wrapper.
+          if (hls_intt_done) begin
+            busy_q   <= 1'b0;
+            done_q   <= 1'b1;
+            output_q <= 32'h0000_0D11;
           end
         end else if (mode_q == MODE_POINTWISE_MUL1024) begin
           // Iterative 1024-coefficient pointwise modular multiplication.
@@ -514,6 +564,8 @@ module falcon_accelerator #(
         DATA_RDATA_OFFSET: begin
           if (mode_q == MODE_NTT_HLS) begin
             reg_rsp_o.rdata = hls_ntt_debug_rdata;
+          end else if (mode_q == MODE_INTT_HLS) begin
+            reg_rsp_o.rdata = hls_intt_debug_rdata;
           end else if ((mode_q == MODE_POINTWISE_MUL1024) && data_index_q[31:11] == 21'h0) begin
             reg_rsp_o.rdata = pointwise_mem_q[data_index_q[10:0]];
           end else if (data_index_q[31:5] == 27'h0) begin
@@ -555,6 +607,8 @@ module falcon_accelerator #(
         DATA_RDATA_OFFSET: begin
           if (mode_q == MODE_NTT_HLS) begin
             obi_rdata_q <= hls_ntt_debug_rdata;
+          end else if (mode_q == MODE_INTT_HLS) begin
+            obi_rdata_q <= hls_intt_debug_rdata;
           end else if ((mode_q == MODE_POINTWISE_MUL1024) && data_index_q[31:11] == 21'h0) begin
             obi_rdata_q <= pointwise_mem_q[data_index_q[10:0]];
           end else if (data_index_q[31:5] == 27'h0) begin
