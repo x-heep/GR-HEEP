@@ -26,6 +26,7 @@ patterns = {
     "RT_D": r"RT_D\s+(\d+)",
     "RT_C": r"RT_C\s+(\d+)",
     "RT_H": r"RT_H\s+(\d+)",
+    "PM_ERR": r"PM_ERR\s+(\d+)",
 }
 
 def find_value(text, pattern):
@@ -44,7 +45,7 @@ def main():
 
     print()
     print("## Status")
-    for marker in ["Dummy OK", "NTT16 OK", "PW16 OK", "PW1024 OK", "INTT OK", "RT OK", "Program Finished with value 0"]:
+    for marker in ["Dummy OK", "NTT16 OK", "PW16 OK", "PW1024 OK", "INTT OK", "RT OK", "PM OK", "Program Finished with value 0"]:
         status = "OK" if marker in text else "-"
         print(f"- {marker}: {status}")
 
