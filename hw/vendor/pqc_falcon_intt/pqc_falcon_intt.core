@@ -16,7 +16,9 @@ filesets:
       - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_mac_muladd_10s_10s_10ns_10_4_1.v
       - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_mac_muladd_16ns_14ns_32s_32_4_1.v
       - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_mul_16s_15ns_16_1_1.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_mul_16ns_15ns_30_1_1.v
       - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_out_copy_1.v
+      - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_out_copy_1_Pipeline_VITIS_LOOP_82_2.v
       - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_out_copy_1_Pipeline_VITIS_LOOP_78_2.v
       - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_stage0_RAM_AUTO_1R1W.v
       - ../PQC_Falcon/impl_FPGA/optimized/INTT/maxi/ip/hdl/verilog/iNTT_udiv_10ns_10s_10_14_1.v
