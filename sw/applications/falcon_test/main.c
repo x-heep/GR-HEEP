@@ -29,6 +29,10 @@
 #define FALCON_MODE_POINTWISE_MUL1024_MONTY 6u
 #endif
 
+#ifndef FALCON_MODE_POLY_SUB1024
+#define FALCON_MODE_POLY_SUB1024 7u
+#endif
+
 static void perf_cycles_reset(void)
 {
     uint32_t dummy;
@@ -393,6 +397,59 @@ int main(void)
 
     printf("PW1024 OK\n");
 
+    // POLY_SUB1024 test: C[i] = A[i] - B[i] mod q.
+    falcon_clear();
+    falcon_set_mode(FALCON_MODE_POLY_SUB1024);
+
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        uint32_t a = mod_q((5u * i) + 11u);
+        uint32_t b = mod_q((7u * i) + 3u);
+
+        falcon_write_coeff(i, a);
+        falcon_write_coeff(i + HLS_N, b);
+    }
+
+    uint32_t sub_start = perf_cycles_read();
+    falcon_start();
+    falcon_wait_done();
+    uint32_t sub_cycles = perf_cycles_read() - sub_start;
+
+    result = falcon_get_output();
+    if (result != 0x00000C11u) {
+        printf("SBFAIL\n");
+        return EXIT_FAILURE;
+    }
+
+    uint32_t sub_errors = 0u;
+    uint32_t sub_chk = 0u;
+
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        uint32_t got = falcon_read_coeff(i) & 0xFFFFu;
+        uint32_t a = mod_q((5u * i) + 11u);
+        uint32_t b = mod_q((7u * i) + 3u);
+        uint32_t exp = (a >= b) ? (a - b) : (a + FALCON_Q - b);
+
+        sub_chk ^= got;
+
+        if (got != exp) {
+            if (sub_errors < 4u) {
+                printf("SBE %u %u %u\n", i, got, exp);
+            }
+            sub_errors++;
+        }
+    }
+
+    printf("SBC %u\n", sub_cycles);
+    printf("SBK %u\n", sub_chk);
+
+    if (sub_errors != 0u) {
+        printf("SBFAIL\n");
+        return EXIT_FAILURE;
+    }
+
+    printf("SBOK\n");
+
+
 #if 0
     // Experimental HLS iNTT control-path test.
     // First integration step: validate CPU -> accelerator -> iNTT wrapper -> done.
@@ -545,7 +602,7 @@ int main(void)
     result = falcon_get_output();
 
     if (result != 0x00000D11u) {
-        printf("RT FAIL\n");
+        printf("RTF\n");
         return EXIT_FAILURE;
     }
 
@@ -573,16 +630,16 @@ int main(void)
 
     rt_errors = rt_hybrid_errors;
 
-    printf("RT_D %u\n", rt_direct_errors);
-    printf("RT_C %u\n", rt_corrected_errors);
-    printf("RT_H %u\n", rt_hybrid_errors);
+    
+    
+    
 
     if (rt_errors != 0u) {
-        printf("RT FAIL\n");
+        printf("RTF\n");
         return EXIT_FAILURE;
     }
 
-    printf("RT OK\n");
+    
 
 #endif
 
@@ -718,7 +775,7 @@ int main(void)
     printf("PC %u %u\n", pm_direct_chk, pm_corr_chk);
     printf("PM OK\n");
 
-    printf("Falcon accelerator PQC_Falcon-like NTT16 test OK\n");
+    printf("DONE\n");
 
     return EXIT_SUCCESS;
 }

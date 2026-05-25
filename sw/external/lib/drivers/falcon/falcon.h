@@ -28,6 +28,7 @@
 #define FALCON_MODE_NTT_HLS 2
 #define FALCON_MODE_INTT_HLS 5
 #define FALCON_MODE_POINTWISE_MUL1024_MONTY 6
+#define FALCON_MODE_POLY_SUB1024 7
 
 void falcon_clear(void);
 void falcon_start(void);

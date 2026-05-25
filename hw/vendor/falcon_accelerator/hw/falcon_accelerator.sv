@@ -60,6 +60,7 @@ module falcon_accelerator #(
   localparam logic [31:0] MODE_POINTWISE_MUL1024 = 32'd4;
   localparam logic [31:0] MODE_INTT_HLS          = 32'd5;
   localparam logic [31:0] MODE_POINTWISE_MUL1024_MONTY = 32'd6;
+  localparam logic [31:0] MODE_POLY_SUB1024           = 32'd7;
 
   // Falcon parameters
   localparam logic [31:0] FALCON_Q   = 32'd12289;
@@ -438,7 +439,7 @@ module falcon_accelerator #(
           end
 
           DATA_WDATA_OFFSET: begin
-            if (((mode_q == MODE_POINTWISE_MUL1024) || (mode_q == MODE_POINTWISE_MUL1024_MONTY)) && data_index_q[31:11] == 21'h0) begin
+            if (((mode_q == MODE_POINTWISE_MUL1024) || (mode_q == MODE_POINTWISE_MUL1024_MONTY) || (mode_q == MODE_POLY_SUB1024)) && data_index_q[31:11] == 21'h0) begin
               pointwise_mem_q[data_index_q[10:0]] <= reg_req_i.wdata;
             end else if ((mode_q != MODE_NTT_HLS) && (mode_q != MODE_INTT_HLS) && data_index_q[31:5] == 27'h0) begin
               ntt_mem_q[data_index_q[4:0]] <= reg_req_i.wdata;
@@ -456,7 +457,7 @@ module falcon_accelerator #(
         done_q      <= 1'b0;
         cycle_cnt_q <= 8'h0;
 
-        if ((mode_q == MODE_POINTWISE_MUL1024) || (mode_q == MODE_POINTWISE_MUL1024_MONTY)) begin
+        if ((mode_q == MODE_POINTWISE_MUL1024) || (mode_q == MODE_POINTWISE_MUL1024_MONTY) || (mode_q == MODE_POLY_SUB1024)) begin
           pointwise_idx_q <= 10'h0;
         end
       end
@@ -477,22 +478,27 @@ module falcon_accelerator #(
             done_q   <= 1'b1;
             output_q <= 32'h0000_0D11;
           end
-        end else if ((mode_q == MODE_POINTWISE_MUL1024) || (mode_q == MODE_POINTWISE_MUL1024_MONTY)) begin
+        end else if ((mode_q == MODE_POINTWISE_MUL1024) || (mode_q == MODE_POINTWISE_MUL1024_MONTY) || (mode_q == MODE_POLY_SUB1024)) begin
           // Iterative 1024-coefficient pointwise modular multiplication.
           // A is stored in pointwise_mem_q[0..1023].
           // B is stored in pointwise_mem_q[1024..2047].
           // C overwrites pointwise_mem_q[0..1023].
-          if (mode_q == MODE_POINTWISE_MUL1024_MONTY) begin
-            pointwise_mem_q[pointwise_idx_q] <= mq_montymul32(
-              pointwise_mem_q[pointwise_idx_q],
-              pointwise_mem_q[{1'b1, pointwise_idx_q}]
-            );
-          end else begin
-            pointwise_mem_q[pointwise_idx_q] <= mod_q(
-              mod_q(pointwise_mem_q[pointwise_idx_q]) *
-              mod_q(pointwise_mem_q[{1'b1, pointwise_idx_q}])
-            );
-          end
+            if (mode_q == MODE_POINTWISE_MUL1024_MONTY) begin
+              pointwise_mem_q[pointwise_idx_q] <= mq_montymul32(
+                pointwise_mem_q[pointwise_idx_q],
+                pointwise_mem_q[{1'b1, pointwise_idx_q}]
+              );
+            end else if (mode_q == MODE_POLY_SUB1024) begin
+              pointwise_mem_q[pointwise_idx_q] <= mq_sub(
+                pointwise_mem_q[pointwise_idx_q],
+                pointwise_mem_q[{1'b1, pointwise_idx_q}]
+              );
+            end else begin
+              pointwise_mem_q[pointwise_idx_q] <= mod_q(
+                mod_q(pointwise_mem_q[pointwise_idx_q]) *
+                mod_q(pointwise_mem_q[{1'b1, pointwise_idx_q}])
+              );
+            end
 
           if (pointwise_idx_q == 10'd1023) begin
             busy_q   <= 1'b0;
@@ -590,7 +596,7 @@ module falcon_accelerator #(
             reg_rsp_o.rdata = hls_ntt_debug_rdata;
           end else if (mode_q == MODE_INTT_HLS) begin
             reg_rsp_o.rdata = hls_intt_debug_rdata;
-          end else if (((mode_q == MODE_POINTWISE_MUL1024) || (mode_q == MODE_POINTWISE_MUL1024_MONTY)) && data_index_q[31:11] == 21'h0) begin
+          end else if (((mode_q == MODE_POINTWISE_MUL1024) || (mode_q == MODE_POINTWISE_MUL1024_MONTY) || (mode_q == MODE_POLY_SUB1024)) && data_index_q[31:11] == 21'h0) begin
             reg_rsp_o.rdata = pointwise_mem_q[data_index_q[10:0]];
           end else if (data_index_q[31:5] == 27'h0) begin
             reg_rsp_o.rdata = ntt_mem_q[data_index_q[4:0]];
@@ -633,7 +639,7 @@ module falcon_accelerator #(
             obi_rdata_q <= hls_ntt_debug_rdata;
           end else if (mode_q == MODE_INTT_HLS) begin
             obi_rdata_q <= hls_intt_debug_rdata;
-          end else if (((mode_q == MODE_POINTWISE_MUL1024) || (mode_q == MODE_POINTWISE_MUL1024_MONTY)) && data_index_q[31:11] == 21'h0) begin
+          end else if (((mode_q == MODE_POINTWISE_MUL1024) || (mode_q == MODE_POINTWISE_MUL1024_MONTY) || (mode_q == MODE_POLY_SUB1024)) && data_index_q[31:11] == 21'h0) begin
             obi_rdata_q <= pointwise_mem_q[data_index_q[10:0]];
           end else if (data_index_q[31:5] == 27'h0) begin
             obi_rdata_q <= ntt_mem_q[data_index_q[4:0]];
