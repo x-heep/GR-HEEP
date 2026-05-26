@@ -14,6 +14,7 @@
 #define HLS_N      1024u
 #define HLS_FULL_OUTPUT 0u
 #define ONLY_INTT_TEST 0u
+#define ONLY_VERIFY_KERNEL_TEST 0u
 #ifndef FALCON_MODE_POINTWISE_MUL
 #define FALCON_MODE_POINTWISE_MUL 3u
 #endif
@@ -204,6 +205,10 @@ int main(void)
     uint32_t expected_dummy = input ^ 0xFA1C0F00u;
     uint32_t result = 0;
 
+
+#if ONLY_VERIFY_KERNEL_TEST
+    goto vk_test_start;
+#endif
     uint32_t input_vec[N] = {
         1u, 2u, 3u, 4u,
         5u, 6u, 7u, 8u,
@@ -448,6 +453,165 @@ int main(void)
     }
 
     printf("SBOK\n");
+
+
+vk_test_start:
+    perf_cycles_reset();
+
+    // VERIFY KERNEL partial test:
+    // s2h = iNTT(POINTWISE_MUL1024_MONTY(NTT(s2), NTT(h)))
+    // s1  = c - s2h mod q, using POLY_SUB1024.
+    uint32_t vk_total_start = perf_cycles_read();
+
+    // Step VK1: NTT(s2), with s2[i] = 2*i + 5.
+    falcon_clear();
+    falcon_set_mode(FALCON_MODE_NTT_HLS);
+
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        falcon_write_coeff(i, mod_q((2u * i) + 5u));
+    }
+
+    uint32_t vk_ntts2_start = perf_cycles_read();
+    falcon_start();
+    falcon_wait_done();
+    uint32_t vk_ntts2_cycles = perf_cycles_read() - vk_ntts2_start;
+
+    result = falcon_get_output();
+    if (result != 0x00000A11u) {
+        printf("VKF\n");
+        return EXIT_FAILURE;
+    }
+
+    // Copy NTT(s2) into pointwise input A.
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        uint32_t coeff;
+
+        falcon_set_mode(FALCON_MODE_NTT_HLS);
+        coeff = falcon_read_coeff(i) & 0xFFFFu;
+
+        falcon_set_mode(FALCON_MODE_POINTWISE_MUL1024_MONTY);
+        falcon_write_coeff(i, coeff);
+    }
+
+    // Step VK2: NTT(h), with h[i] = 3*i + 7.
+    falcon_clear();
+    falcon_set_mode(FALCON_MODE_NTT_HLS);
+
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        falcon_write_coeff(i, mod_q((3u * i) + 7u));
+    }
+
+    uint32_t vk_ntth_start = perf_cycles_read();
+    falcon_start();
+    falcon_wait_done();
+    uint32_t vk_ntth_cycles = perf_cycles_read() - vk_ntth_start;
+
+    result = falcon_get_output();
+    if (result != 0x00000A11u) {
+        printf("VKF\n");
+        return EXIT_FAILURE;
+    }
+
+    // Copy NTT(h) into pointwise input B.
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        uint32_t coeff;
+
+        falcon_set_mode(FALCON_MODE_NTT_HLS);
+        coeff = falcon_read_coeff(i) & 0xFFFFu;
+
+        falcon_set_mode(FALCON_MODE_POINTWISE_MUL1024_MONTY);
+        falcon_write_coeff(i + HLS_N, coeff);
+    }
+
+    // Step VK3: pointwise Montgomery multiplication.
+    falcon_set_mode(FALCON_MODE_POINTWISE_MUL1024_MONTY);
+
+    uint32_t vk_pw_start = perf_cycles_read();
+    falcon_start();
+    falcon_wait_done();
+    uint32_t vk_pw_cycles = perf_cycles_read() - vk_pw_start;
+
+    result = falcon_get_output();
+    if (result != 0x00000C11u) {
+        printf("VKF\n");
+        return EXIT_FAILURE;
+    }
+
+    // Step VK4: copy pointwise result to iNTT input.
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        uint32_t coeff;
+
+        falcon_set_mode(FALCON_MODE_POINTWISE_MUL1024_MONTY);
+        coeff = falcon_read_coeff(i) & 0xFFFFu;
+
+        falcon_set_mode(FALCON_MODE_INTT_HLS);
+        falcon_write_coeff(i, coeff);
+    }
+
+    // Step VK5: iNTT gives s2*h in normal domain.
+    falcon_set_mode(FALCON_MODE_INTT_HLS);
+
+    uint32_t vk_intt_start = perf_cycles_read();
+    falcon_start();
+    falcon_wait_done();
+    uint32_t vk_intt_cycles = perf_cycles_read() - vk_intt_start;
+
+    result = falcon_get_output();
+    if (result != 0x00000D11u) {
+        printf("VKF\n");
+        return EXIT_FAILURE;
+    }
+
+    // Step VK6: prepare POLY_SUB1024: A=c, B=s2h.
+    // First copy s2h from iNTT output to POLY_SUB B.
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        uint32_t coeff;
+
+        falcon_set_mode(FALCON_MODE_INTT_HLS);
+        coeff = falcon_read_coeff(i) & 0xFFFFu;
+
+        falcon_set_mode(FALCON_MODE_POLY_SUB1024);
+        falcon_write_coeff(i + HLS_N, coeff);
+    }
+
+    // Load c[i] = 11*i + 13 into POLY_SUB A.
+    falcon_set_mode(FALCON_MODE_POLY_SUB1024);
+
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        falcon_write_coeff(i, mod_q((11u * i) + 13u));
+    }
+
+    uint32_t vk_sub_start = perf_cycles_read();
+    falcon_start();
+    falcon_wait_done();
+    uint32_t vk_sub_cycles = perf_cycles_read() - vk_sub_start;
+
+    result = falcon_get_output();
+    if (result != 0x00000C11u) {
+        printf("VKF\n");
+        return EXIT_FAILURE;
+    }
+
+    uint32_t vk_s1_chk = 0u;
+    falcon_set_mode(FALCON_MODE_POLY_SUB1024);
+
+    for (uint32_t i = 0; i < HLS_N; i++) {
+        uint32_t got = falcon_read_coeff(i) & 0xFFFFu;
+        vk_s1_chk ^= got;
+    }
+
+    uint32_t vk_total_cycles = perf_cycles_read() - vk_total_start;
+
+    printf("VKP %u %u %u %u %u %u\n",
+           vk_ntts2_cycles,
+           vk_ntth_cycles,
+           vk_pw_cycles,
+           vk_intt_cycles,
+           vk_sub_cycles,
+           vk_total_cycles);
+
+    printf("VKC %u\n", vk_s1_chk);
+    printf("VKOK\n");
 
 
 #if 0
