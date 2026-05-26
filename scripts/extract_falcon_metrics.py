@@ -35,6 +35,7 @@ STATUS_KEYS = [
     "INTT OK",
     "RT OK",
     "PM OK",
+    "VKOK",
     "Program Finished with value 0",
 ]
 
@@ -75,6 +76,31 @@ def main():
     if pc:
         metrics["PIPE_CHECKSUM_DIRECT"] = int(pc.group(1))
         metrics["PIPE_CHECKSUM_CORRECTED_MINUS_4095"] = int(pc.group(2))
+
+    # VKP <NTT_s2> <NTT_h> <POINTWISE_MONTY> <INTT> <POLY_SUB1024> <TOTAL>
+    vkp = re.search(r"^VKP\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)", text, re.MULTILINE)
+    if vkp:
+        verify_ntt_s2 = int(vkp.group(1))
+        verify_ntt_h = int(vkp.group(2))
+        verify_pw = int(vkp.group(3))
+        verify_intt = int(vkp.group(4))
+        verify_sub = int(vkp.group(5))
+        verify_total = int(vkp.group(6))
+        verify_compute = verify_ntt_s2 + verify_ntt_h + verify_pw + verify_intt + verify_sub
+        verify_overhead = verify_total - verify_compute
+
+        metrics["VERIFY_NTT_S2_CYCLES"] = verify_ntt_s2
+        metrics["VERIFY_NTT_H_CYCLES"] = verify_ntt_h
+        metrics["VERIFY_POINTWISE_MONTY_CYCLES"] = verify_pw
+        metrics["VERIFY_INTT_CYCLES"] = verify_intt
+        metrics["VERIFY_POLY_SUB1024_CYCLES"] = verify_sub
+        metrics["VERIFY_TOTAL_CYCLES"] = verify_total
+        metrics["VERIFY_ACCEL_COMPUTE_CYCLES"] = verify_compute
+        metrics["VERIFY_DATA_MOVEMENT_OVERHEAD_CYCLES"] = verify_overhead
+
+    vkc = re.search(r"^VKC\s+(\d+)", text, re.MULTILINE)
+    if vkc:
+        metrics["VERIFY_CHECKSUM"] = int(vkc.group(1))
 
     print("## Falcon accelerator metrics")
     print()
