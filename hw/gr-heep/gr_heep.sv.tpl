@@ -359,7 +359,9 @@ module gr_heep (
         .xif_result_if(ext_xif)
       % endif
     );
-  % else:
+  % endif
+
+  % if not (gr_heep["periph_nslaves"] > 0):
     assign heep_peripheral_rsp = '0;
   % endif
 
