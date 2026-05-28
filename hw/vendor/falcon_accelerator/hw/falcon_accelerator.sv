@@ -97,6 +97,7 @@ module falcon_accelerator #(
 
   logic [31:0] ntt_mem_q [0:LOCAL_MEM_N-1];
   logic [31:0] pointwise_mem_q [0:POINTWISE_MEM_N-1];
+  logic [31:0] obi_window_mem_q [0:POINTWISE_MEM_N-1];
   logic [9:0]  pointwise_idx_q;
 
   logic        done_q;
@@ -110,6 +111,14 @@ module falcon_accelerator #(
   logic        obi_gnt;
   logic        obi_rvalid_q;
   logic [31:0] obi_rdata_q;
+  logic [10:0] obi_word_index_q;
+  logic        obi_read_q;
+  logic [31:0] obi_last_wdata_q;
+  logic [31:0] obi_word0_q;
+  logic [31:0] obi_word1_q;
+  logic [31:0] obi_word1024_q;
+  logic [31:0] obi_last_addr_q;
+  logic [10:0] obi_last_index_q;
 
   // PQC_Falcon HLS NTT IP structural instance.
   // Parked for now; current functional path still uses local NTT16.
@@ -163,19 +172,19 @@ module falcon_accelerator #(
   );
 
   // Address decoding
-  logic [7:0] reg_addr;
-  logic [7:0] obi_addr;
+  logic [7:0]  reg_addr;
+  logic [7:0]  obi_addr;
+  logic [10:0] obi_word_index;
 
-  assign reg_addr = reg_req_i.addr[7:0];
-  assign obi_addr = obi_req_i.addr[7:0];
+  assign reg_addr       = reg_req_i.addr[7:0];
+  assign obi_addr       = obi_req_i.addr[7:0];
+  assign obi_word_index = obi_req_i.addr[12:2]; // 2048 x 32-bit words = 8 KiB
 
   // Consume currently unused fields to keep Verilator clean.
   logic unused_signals;
   assign unused_signals = ^{
-    obi_req_i.addr[31:8],
-    obi_req_i.wdata,
+    obi_req_i.addr[31:13],
     obi_req_i.be,
-    obi_req_i.we,
     reg_req_i.addr[31:8],
     reg_req_i.wstrb,
     hls_ntt_interrupt,
@@ -404,6 +413,9 @@ module falcon_accelerator #(
       end
 
       // Configuration register writes
+      // Direct OBI data-window writes.
+      // FALCON_ACCELERATOR_START_ADDRESS + 4*i maps to pointwise_mem_q[i].
+      // This prepares the accelerator memory for block transfers / DMA.
       if (reg_req_i.valid && reg_req_i.write) begin
         unique case (reg_addr)
           MODE_OFFSET: begin
@@ -613,7 +625,25 @@ module falcon_accelerator #(
   end
 
   // --------------------------------------------------------------------------
-  // OBI read access
+  // OBI data-window write path
+  // --------------------------------------------------------------------------
+  // Minimal scalar diagnostic: any OBI write stores into obi_word0_q.
+  always_ff @(posedge clk_i or negedge rst_ni) begin
+    if (!rst_ni) begin
+      obi_last_wdata_q <= 32'h0;
+      obi_word0_q      <= 32'h0;
+      obi_word1_q      <= 32'h0;
+      obi_word1024_q   <= 32'h0;
+    end else begin
+      if (obi_req_i.req && obi_req_i.we) begin
+        obi_last_wdata_q <= obi_req_i.wdata;
+        obi_word0_q      <= obi_req_i.wdata;
+      end
+    end
+  end
+
+  // --------------------------------------------------------------------------
+  // OBI data-window access
   // --------------------------------------------------------------------------
   assign obi_gnt = obi_req_i.req;
 
@@ -622,36 +652,11 @@ module falcon_accelerator #(
       obi_rvalid_q <= 1'b0;
       obi_rdata_q  <= 32'h0;
     end else begin
-      obi_rvalid_q <= obi_gnt;
+      obi_rvalid_q <= obi_req_i.req && !obi_req_i.we;
 
-      unique case (obi_addr)
-        STATUS_OFFSET: begin
-          obi_rdata_q <= (32'(done_q) << STATUS_DONE_BIT) |
-                         (32'(busy_q) << STATUS_BUSY_BIT);
-        end
-
-        OUTPUT_OFFSET: begin
-          obi_rdata_q <= output_q;
-        end
-
-        DATA_RDATA_OFFSET: begin
-          if (mode_q == MODE_NTT_HLS) begin
-            obi_rdata_q <= hls_ntt_debug_rdata;
-          end else if (mode_q == MODE_INTT_HLS) begin
-            obi_rdata_q <= hls_intt_debug_rdata;
-          end else if (((mode_q == MODE_POINTWISE_MUL1024) || (mode_q == MODE_POINTWISE_MUL1024_MONTY) || (mode_q == MODE_POLY_SUB1024)) && data_index_q[31:11] == 21'h0) begin
-            obi_rdata_q <= pointwise_mem_q[data_index_q[10:0]];
-          end else if (data_index_q[31:5] == 27'h0) begin
-            obi_rdata_q <= ntt_mem_q[data_index_q[4:0]];
-          end else begin
-            obi_rdata_q <= 32'h0;
-          end
-        end
-
-        default: begin
-          obi_rdata_q <= 32'h0;
-        end
-      endcase
+      if (obi_req_i.req && !obi_req_i.we) begin
+        obi_rdata_q <= obi_word0_q;
+      end
     end
   end
 
