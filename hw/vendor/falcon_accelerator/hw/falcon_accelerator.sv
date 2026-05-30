@@ -627,7 +627,12 @@ module falcon_accelerator #(
   // --------------------------------------------------------------------------
   // OBI data-window write path
   // --------------------------------------------------------------------------
-  // Minimal scalar diagnostic: any OBI write stores into obi_word0_q.
+  // Linear OBI data window:
+  //   FALCON_START + 4*i -> obi_window_mem_q[i]
+  //
+  // The RAM is intentionally not reset entry-by-entry, because large memory
+  // resets are not synthesis-friendly and caused Verilator issues. Software must
+  // write locations before reading them.
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
       obi_last_wdata_q <= 32'h0;
@@ -637,7 +642,16 @@ module falcon_accelerator #(
     end else begin
       if (obi_req_i.req && obi_req_i.we) begin
         obi_last_wdata_q <= obi_req_i.wdata;
-        obi_word0_q      <= obi_req_i.wdata;
+        obi_window_mem_q[obi_word_index] <= obi_req_i.wdata;
+
+        // Debug mirrors.
+        if (obi_word_index == 11'd0) begin
+          obi_word0_q <= obi_req_i.wdata;
+        end else if (obi_word_index == 11'd1) begin
+          obi_word1_q <= obi_req_i.wdata;
+        end else if (obi_word_index == 11'd1024) begin
+          obi_word1024_q <= obi_req_i.wdata;
+        end
       end
     end
   end
@@ -652,10 +666,13 @@ module falcon_accelerator #(
       obi_rvalid_q <= 1'b0;
       obi_rdata_q  <= 32'h0;
     end else begin
-      obi_rvalid_q <= obi_req_i.req && !obi_req_i.we;
+      // OBI response phase:
+      // respond to both reads and writes. Some masters wait for rvalid also
+      // after stores, so write-only accesses must complete too.
+      obi_rvalid_q <= obi_req_i.req;
 
       if (obi_req_i.req && !obi_req_i.we) begin
-        obi_rdata_q <= obi_word0_q;
+        obi_rdata_q <= obi_window_mem_q[obi_word_index];
       end
     end
   end
