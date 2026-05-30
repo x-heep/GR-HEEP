@@ -8,13 +8,10 @@
 #include "csr.h"
 #include "rv_plic.h"
 
-#define NWORDS 256u
+#define NWORDS 128u
 
+static uint32_t src[NWORDS] __attribute__((aligned(4)));
 static uint32_t dst[NWORDS] __attribute__((aligned(4)));
-
-static inline void mmio_write32(uint32_t addr, uint32_t value) {
-    asm volatile ("sw %0, 0(%1)" :: "r"(value), "r"(addr) : "memory");
-}
 
 static void wait_dma_done(void) {
     while (!dma_is_ready(0)) {
@@ -26,41 +23,20 @@ static void wait_dma_done(void) {
     }
 }
 
-void dma_intr_handler_trans_done(uint8_t channel) {
-    (void)channel;
-}
-
-void dma_intr_handler_window_done(uint8_t channel) {
-    (void)channel;
-}
-
-int main(void) {
-    dma_target_t tgt_src;
-    dma_target_t tgt_dst;
-    dma_trans_t trans;
+static int run_dma_1d_word(uint32_t src_addr, uint32_t dst_addr, uint32_t nwords) {
+    dma_target_t tgt_src = {0};
+    dma_target_t tgt_dst = {0};
+    dma_trans_t trans = {0};
     dma_config_flags_t res;
 
-    uint32_t base = (uint32_t)FALCON_ACCELERATOR_START_ADDRESS;
-    uint32_t errors = 0;
-
-    printf("DMA_FALCON_TO_RAM_START\n");
-    printf("FALCON_BASE 0x%08x\n", base);
-
-    for (uint32_t i = 0; i < NWORDS; i++) {
-        dst[i] = 0u;
-        mmio_write32(base + 4u * i, 0xBEEF0000u | i);
-    }
-
-    dma_init(NULL);
-
-    tgt_src.ptr = (uint8_t *)base;
+    tgt_src.ptr = (uint8_t *)src_addr;
     tgt_src.inc_d1_du = 1;
     tgt_src.inc_d2_du = 0;
     tgt_src.trig = DMA_TRIG_MEMORY;
     tgt_src.type = DMA_DATA_TYPE_WORD;
     tgt_src.env = NULL;
 
-    tgt_dst.ptr = (uint8_t *)dst;
+    tgt_dst.ptr = (uint8_t *)dst_addr;
     tgt_dst.inc_d1_du = 1;
     tgt_dst.inc_d2_du = 0;
     tgt_dst.trig = DMA_TRIG_MEMORY;
@@ -72,7 +48,7 @@ int main(void) {
     trans.src_addr = NULL;
     trans.src_type = DMA_DATA_TYPE_WORD;
     trans.dst_type = DMA_DATA_TYPE_WORD;
-    trans.size_d1_du = NWORDS;
+    trans.size_d1_du = nwords;
     trans.size_d2_du = 0;
     trans.mode = DMA_TRANS_MODE_SINGLE;
     trans.win_du = 0;
@@ -96,20 +72,61 @@ int main(void) {
 
     printf("DMA_DONE\n");
 
+    return 0;
+}
+
+void dma_intr_handler_trans_done(uint8_t channel) {
+    (void)channel;
+}
+
+void dma_intr_handler_window_done(uint8_t channel) {
+    (void)channel;
+}
+
+int main(void) {
+    uint32_t falcon_base = (uint32_t)FALCON_ACCELERATOR_START_ADDRESS;
+    uint32_t errors = 0;
+    int ret;
+
+    printf("DMA_RAM_FALCON_RAM_START\n");
+    printf("FALCON_BASE 0x%08x\n", falcon_base);
+    printf("NWORDS %u\n", (unsigned)NWORDS);
+
     for (uint32_t i = 0; i < NWORDS; i++) {
-        uint32_t expected = 0xBEEF0000u | i;
+        src[i] = 0xCAFE0000u | i;
+        dst[i] = 0u;
+    }
+
+    dma_init(NULL);
+
+    printf("STEP1_RAM_TO_FALCON\n");
+    ret = run_dma_1d_word((uint32_t)src, falcon_base, NWORDS);
+    if (ret != 0) {
+        printf("STEP1_FAILED %d\n", ret);
+        return ret;
+    }
+
+    printf("STEP2_FALCON_TO_RAM\n");
+    ret = run_dma_1d_word(falcon_base, (uint32_t)dst, NWORDS);
+    if (ret != 0) {
+        printf("STEP2_FAILED %d\n", ret);
+        return 20 + ret;
+    }
+
+    for (uint32_t i = 0; i < NWORDS; i++) {
+        uint32_t expected = 0xCAFE0000u | i;
         uint32_t got = dst[i];
 
         if (got != expected) {
             if (errors < 8u) {
-                printf("DMA_FR_MISMATCH i=%u got=0x%08x expected=0x%08x\n",
+                printf("DMA_RFR_MISMATCH i=%u got=0x%08x expected=0x%08x\n",
                        i, got, expected);
             }
             errors++;
         }
     }
 
-    printf("DMA_FALCON_TO_RAM_ERRORS %u\n", errors);
+    printf("DMA_RAM_FALCON_RAM_ERRORS %u\n", errors);
 
     return errors ? 1 : 0;
 }
