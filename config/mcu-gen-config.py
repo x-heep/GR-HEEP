@@ -161,6 +161,9 @@ def gr_heep_config():
 
     external_interrupts = 0
 
+    # Channels allowed to connect hw_fifo streaming accelerators
+    hw_fifo_channels = []
+
     # vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
     # Do not modify below this line unless you know what you are doing
     # vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
@@ -206,6 +209,7 @@ def gr_heep_config():
         "slaves": slaves,
         "peripherals": peripherals,
         "ext_interrupts": external_interrupts,
+        "hw_fifo_channels": hw_fifo_channels,
     }
 
     return kwargs

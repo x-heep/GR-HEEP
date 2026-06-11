@@ -14,6 +14,8 @@
     analog_signal_pads = [ pad for pad in xheep.get_padring().pad_list if any(isinstance(pin, Asignal) for pin in pad.pins) ]
     gr_heep = xheep.get_extension("gr-heep")
     xif = xheep.xif()
+    dma = xheep.get_base_peripheral_domain().get_dma()
+    hw_fifo = (dma._hw_fifo_mode == 1) and (len(gr_heep["hw_fifo_channels"])>0)
 %>
 module gr_heep (
     // X-HEEP interface
@@ -325,31 +327,36 @@ module gr_heep (
   % endif
   assign ext_ao_peripheral_req = '0;
 
-  % if (gr_heep["xbar_nmasters"] > 0 or gr_heep["xbar_nslaves"] > 0 or gr_heep["periph_nslaves"] > 0 or xif):
+  % if (gr_heep["periph_nslaves"] > 0 or xif or gr_heep["xbar_nslaves"] > 0 or gr_heep["xbar_nmasters"] > 0 or hw_fifo):
     gr_heep_peripherals gr_heep_peripherals_i (
       .clk_i(clk_in_x),
       .rst_ni(rst_nin_sync),
       % if (gr_heep["xbar_nmasters"] > 0):
         % if (gr_heep["xbar_nslaves"] > 0):
           .gr_heep_master_req_o(gr_heep_master_req),
-          .gr_heep_master_resp_i(gr_heep_master_resp)${'' if ((gr_heep["xbar_nslaves"] + gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) and (xif is None)) else ','}
+          .gr_heep_master_resp_i(gr_heep_master_resp)${'' if ((gr_heep["xbar_nslaves"] + gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) and (not hw_fifo) and (xif is None)) else ','}
         % else:
           .gr_heep_master_req_o(heep_slave_req),
-          .gr_heep_master_resp_i(heep_slave_rsp)${'' if ((gr_heep["xbar_nslaves"] + gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) and (xif is None)) else ','}
+          .gr_heep_master_resp_i(heep_slave_rsp)${'' if ((gr_heep["xbar_nslaves"] + gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) and (not hw_fifo) and (xif is None)) else ','}
         % endif
       % endif
       % if (gr_heep["xbar_nslaves"] > 0):
         .gr_heep_slave_req_i(gr_heep_slave_req),
-        .gr_heep_slave_resp_o(gr_heep_slave_resp)${'' if ((gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) and (xif is None)) else ','}
+        .gr_heep_slave_resp_o(gr_heep_slave_resp)${'' if ((gr_heep["periph_nslaves"] + gr_heep["ext_interrupts"] == 0) and (not hw_fifo) and (xif is None)) else ','}
       % endif
       % if (gr_heep["periph_nslaves"] > 0):
         .gr_heep_peripheral_req_i(heep_peripheral_req),
-        .gr_heep_peripheral_rsp_o(heep_peripheral_rsp)${'' if ((gr_heep["ext_interrupts"] == 0) and (xif is None)) else ','}
+        .gr_heep_peripheral_rsp_o(heep_peripheral_rsp)${'' if ((gr_heep["ext_interrupts"] == 0) and (not hw_fifo) and (xif is None)) else ','}
       % endif
       % if (gr_heep["ext_interrupts"] > 0):
         .gr_heep_peripheral_vec_int_o(ext_int_vector[${gr_heep["ext_interrupts"]-1}:0]),
-        .gr_heep_peripheral_int_o(intr_ext_peripheral)${'' if (xif is None) else ','}
+        .gr_heep_peripheral_int_o(intr_ext_peripheral)${'' if (hw_fifo == 0) and (xif is None) else ','}
       %endif
+      % if (hw_fifo):
+        .hw_fifo_req_i (hw_fifo_req),
+        .hw_fifo_rsp_o (hw_fifo_rsp),
+        .hw_fifo_done_o (hw_fifo_done)${'' if (xif is None) else ','}
+      % endif
       % if (xif):
         .xif_compressed_if(ext_xif),
         .xif_issue_if(ext_xif),
@@ -365,8 +372,11 @@ module gr_heep (
     assign heep_peripheral_rsp = '0;
   % endif
 
-  assign hw_fifo_done = '0;
-  assign hw_fifo_rsp = '0;
+  % if not hw_fifo:
+    assign hw_fifo_done = '0;
+    assign hw_fifo_rsp = '0;
+  % endif
+
   assign ext_dma_slot_tx = '0;
   assign ext_dma_slot_rx = '0;
   % if (gr_heep["ext_interrupts"] == 0):
