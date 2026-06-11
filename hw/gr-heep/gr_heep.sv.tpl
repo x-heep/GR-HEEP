@@ -325,7 +325,7 @@ module gr_heep (
   % endif
   assign ext_ao_peripheral_req = '0;
 
-  % if (gr_heep["periph_nslaves"] > 0 or xif):
+  % if (gr_heep["xbar_nmasters"] > 0 or gr_heep["xbar_nslaves"] > 0 or gr_heep["periph_nslaves"] > 0 or xif):
     gr_heep_peripherals gr_heep_peripherals_i (
       .clk_i(clk_in_x),
       .rst_ni(rst_nin_sync),
