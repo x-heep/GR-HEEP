@@ -27,7 +27,6 @@ HEEP_EXTERNAL_ROOT	:= $(abspath .)
 
 # Furthermore, a variable HEEP_DIR with the relative path between that directory and the X-HEEP base directory (where this file is lcoated) needs to be exported.
 # This will compute the opposite relative path (from the X-HEEP base directory to where this file is included).
-# Use Python for portability (macOS BSD realpath lacks --relative-to support)
 HEEP_REL_PATH = $(shell python3 -c "import os; print(os.path.relpath('.', '$(HEEP_DIR)'))")
 
 # This assumes that you are including this file from a directory where you have a "sw" directory.
