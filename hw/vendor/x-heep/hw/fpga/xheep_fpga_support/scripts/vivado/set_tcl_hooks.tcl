@@ -13,6 +13,8 @@ set supported_boards [dict create \
 
 set board [current_board]
 set vlog_defines [get_property verilog_define [current_fileset]]
+set is_vpk180 [expr {[lsearch -exact $vlog_defines "FPGA_VPK180=1"] >= 0 || \
+    [string match -nocase "*vpk180*" $board]}]
 
 # PS_ENABLE active
 if {[lsearch -exact $vlog_defines "PS_ENABLE=1"] >= 0} {
@@ -39,7 +41,16 @@ if {[lsearch -exact $vlog_defines "PS_ENABLE=1"] >= 0} {
         }
     }
 
-    # Attach ECO to implementation run (post opt_design)
-    set eco [file normalize [file join $here "eco_spi_flash_mux.tcl"]]
-    set_property -name {STEPS.OPT_DESIGN.TCL.POST} -value $eco -objects [get_runs impl_1]
+    # Attach SPI flash ECO to implementation run (post opt_design) for boards
+    # using the PS wizard flow above.
+    if {$matched_board != ""} {
+        set eco [file normalize [file join $here "eco_spi_flash_mux.tcl"]]
+        set_property -name {STEPS.OPT_DESIGN.TCL.POST} -value $eco -objects [get_runs impl_1]
+    }
+
+    # Attach VPK180 clock-divider ECO to implementation run before opt_design.
+    if {$is_vpk180} {
+        set clk_div_eco [file normalize [file join $here "eco_clk_int_div_bufg.tcl"]]
+        set_property -name {STEPS.OPT_DESIGN.TCL.PRE} -value $clk_div_eco -objects [get_runs impl_1]
+    }
 }

@@ -307,7 +307,6 @@ module testharness #(
       .gpio_10_io(gpio[10]),
       .gpio_11_io(gpio[11]),
       .gpio_12_io(gpio[12]),
-      .gpio_13_io(gpio[13]),
       .ddr_rcv_clk_i(ddr_clk_i_xheep[0]),
       .ddr_snd_clk_o(ddr_clk_o_xheep[0]),
       .spi_slave_sck_io(spi_sck),
@@ -328,11 +327,12 @@ module testharness #(
       .spi_sd_1_io(spi_sd_io[1]),
       .spi_sd_2_io(spi_sd_io[2]),
       .spi_sd_3_io(spi_sd_io[3]),
-      .pdm2pcm_pdm_io(gpio[18]),
-      .pdm2pcm_clk_io(gpio[19]),
-      .i2s_sck_io(gpio[20]),
-      .i2s_ws_io(gpio[21]),
-      .i2s_sd_io(gpio[22]),
+      .pdm2pcm_pdm_io(gpio[17]),
+      .pdm2pcm_clk_io(gpio[18]),
+      .i2s_sck_io(gpio[19]),
+      .i2s_ws_io(gpio[20]),
+      .i2s_sd_rx_io(gpio[21]),
+      .i2s_sd_tx_io(gpio[22]),
       .spi2_cs_0_io(gpio[23]),
       .spi2_cs_1_io(gpio[24]),
       .spi2_sck_io(gpio[25]),
@@ -633,6 +633,42 @@ module testharness #(
           .acc_write_ch0_resp_i(ext_master_resp[testharness_pkg::EXT_MASTER3_IDX])
       );
 
+      // HLS-generated streaming dot-product accelerator: AXI4-Lite CTRL
+      // bridged as an OBI slave, its two AXI4 read masters bridged as OBI
+      // masters -- see hw/fpga/hls/vitis/dot_product/rtl/dot_product_xheep_wrapper.sv
+      //
+      // Only built when the 'use_hls_example' FuseSoC flag is passed (see
+      // core-v-mini-mcu.core): that flag both defines USE_HLS_EXAMPLE here
+      // and gates the epfl:ip:dot_product dependency / the pre-build hook
+      // that runs Vitis HLS, so without it X-HEEP never needs Vitis HLS
+      // installed at all. Also not present in the SIM_SYSTEMC build: that
+      // flow keeps EXT_XBAR_NSLAVE at its original size (see
+      // testharness_pkg.sv), which has no slot for this accelerator's
+      // CTRL port.
+`ifdef USE_HLS_EXAMPLE
+  `ifndef SIM_SYSTEMC
+      dot_product_xheep_wrapper dot_product_wrapper_i (
+          .clk_i (clk_i),
+          .rst_ni(rst_ni),
+
+          .ctrl_obi_req_i(ext_slave_req[testharness_pkg::DOT_PRODUCT_CTRL_IDX]),
+          .ctrl_obi_rsp_o(ext_slave_resp[testharness_pkg::DOT_PRODUCT_CTRL_IDX]),
+
+          .gmem_a_obi_req_o(ext_master_req[testharness_pkg::EXT_MASTER8_IDX]),
+          .gmem_a_obi_rsp_i(ext_master_resp[testharness_pkg::EXT_MASTER8_IDX]),
+
+          .gmem_b_obi_req_o(ext_master_req[testharness_pkg::EXT_MASTER9_IDX]),
+          .gmem_b_obi_rsp_i(ext_master_resp[testharness_pkg::EXT_MASTER9_IDX])
+      );
+  `else
+      assign ext_master_req[testharness_pkg::EXT_MASTER8_IDX] = '0;
+      assign ext_master_req[testharness_pkg::EXT_MASTER9_IDX] = '0;
+  `endif
+`else
+      assign ext_master_req[testharness_pkg::EXT_MASTER8_IDX] = '0;
+      assign ext_master_req[testharness_pkg::EXT_MASTER9_IDX] = '0;
+`endif
+
       im2col_spc #(
         .reg_req_t(reg_req_t),
         .reg_rsp_t(reg_rsp_t)
@@ -677,6 +713,19 @@ module testharness #(
           .iffifo_int_o(iffifo_int_o)
       );
 
+      i2s_tx_sink #(
+          .reg_req_t(reg_req_t),
+          .reg_rsp_t(reg_rsp_t)
+      ) i2s_tx_sink_i (
+          .clk_i,
+          .rst_ni,
+          .reg_req_i(ext_periph_slv_req[testharness_pkg::I2S_TX_SINK_IDX]),
+          .reg_rsp_o(ext_periph_slv_rsp[testharness_pkg::I2S_TX_SINK_IDX]),
+          .i2s_sck_i(gpio[19]),
+          .i2s_ws_i(gpio[20]),
+          .i2s_sd_i(gpio[22])
+      );
+
       addr_decode #(
           .NoIndices(testharness_pkg::EXT_NPERIPHERALS),
           .NoRules(testharness_pkg::EXT_NPERIPHERALS),
@@ -719,16 +768,16 @@ module testharness #(
       pdm2pcm_dummy pdm2pcm_dummy_i (
           .clk_i,
           .rst_ni,
-          .pdm_data_o(gpio[18]),
-          .pdm_clk_i (gpio[19])
+          .pdm_data_o(gpio[17]),
+          .pdm_clk_i (gpio[18])
       );
 
       // I2s "microphone"/rx example
       i2s_microphone i2s_microphone_i (
           .rst_ni(rst_ni),
-          .i2s_sck_i(gpio[20]),
-          .i2s_ws_i(gpio[21]),
-          .i2s_sd_o(gpio[22])
+          .i2s_sck_i(gpio[19]),
+          .i2s_ws_i(gpio[20]),
+          .i2s_sd_o(gpio[21])
       );
 
       // Flash used for booting (execute from flash or copy from flash)

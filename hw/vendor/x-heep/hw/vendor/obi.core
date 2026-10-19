@@ -1,0 +1,49 @@
+CAPI=2:
+# Created by bender from the available manifest file.
+
+
+name: ::obi:0.1.7
+filesets:
+  test:
+    file_type: systemVerilogSource
+    files:
+    - src/test/obi_asserter.sv
+    - src/test/obi_test.sv
+    - src/test/obi_sim_mem.sv
+    - src/test/tb_obi_xbar.sv
+    - src/test/atop_golden_mem_pkg.sv
+    - src/test/tb_obi_atop_resolver.sv
+    depend:
+    - pulp-platform.org::common_cells:1.38.0
+    - tool_modelsim ? (pulp-platform.org::common_verification:0.2.5)
+  files_rtl:
+    file_type: systemVerilogSource
+    files:
+    - pulp_platform/obi/src/obi_pkg.sv
+    - pulp_platform/obi/src/obi_intf.sv
+    - pulp_platform/obi/src/obi_rready_converter.sv
+    - pulp_platform/obi/src/apb_to_obi.sv
+    - pulp_platform/obi/src/obi_atop_resolver.sv
+    - pulp_platform/obi/src/obi_cut.sv
+    - pulp_platform/obi/src/obi_demux.sv
+    - pulp_platform/obi/src/obi_err_sbr.sv
+    - pulp_platform/obi/src/obi_mux.sv
+    - pulp_platform/obi/src/obi_sram_shim.sv
+    - pulp_platform/obi/src/obi_xbar.sv
+    - pulp_platform/obi/include/obi/typedef.svh:
+        is_include_file: true
+        include_path: pulp_platform/obi/include
+    - pulp_platform/obi/include/obi/assign.svh:
+        is_include_file: true
+        include_path: pulp_platform/obi/include
+    depend:
+    - pulp-platform.org::common_cells
+    - tool_modelsim ? (pulp-platform.org::common_verification:0.2.5)
+targets:
+  default:
+    filesets:
+    - files_rtl
+  simulation:
+    filesets:
+    - files_rtl
+    - test

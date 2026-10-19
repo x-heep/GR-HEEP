@@ -173,8 +173,8 @@ module w25q128jw_controller
 
   // memio fast-path
   logic [31:0] memio_addr_q, memio_addr_d;
-  logic [31:0] memio_data;
-  logic [ 3:0] memio_be;
+  logic [31:0] memio_data_d, memio_data_q;
+  logic [ 3:0] memio_be_d, memio_be_q;
   logic [31:0] memio_write_offset_q, memio_write_offset_d;
   memio_state_e memio_state_q, memio_state_d;
 
@@ -194,12 +194,12 @@ module w25q128jw_controller
       fwait_state_q <= FWAIT_IDLE;
       modify_state_q <= MODIFY_IDLE;
       write_state_q <= WRITE_IDLE;
-
+      memio_data_q <= '0;
+      memio_be_q   <= '0;
       if (CACHE_EN) begin
         check_cache_state_q <= CHECK_CACHE_IDLE;
         read_cache_state_q  <= READ_CACHE_IDLE;
       end
-
       // -------- Reset: Clear counters and offsets --------
       fwait_return_q   <= FWAIT_RETURN_IDLE;
       page_cnt_q    <= 4'b0;
@@ -244,6 +244,8 @@ module w25q128jw_controller
       read_remaining_bytes_q <= read_remaining_bytes_d;
       spi_control_q <= spi_control_d;
       memio_addr_q <= memio_addr_d;
+      memio_data_q <= memio_data_d;
+      memio_be_q <= memio_be_d;
       memio_state_q <= memio_state_d;
       memio_write_offset_q <= memio_write_offset_d;
 
@@ -284,6 +286,8 @@ module w25q128jw_controller
     read_remaining_bytes_d = read_remaining_bytes_q;
     spi_control_d = spi_control_q;
     memio_addr_d = memio_addr_q;
+    memio_data_d = memio_data_q;
+    memio_be_d = memio_be_q;
     memio_state_d = memio_state_q;
     memio_write_offset_d = memio_write_offset_q;
 
@@ -350,8 +354,8 @@ module w25q128jw_controller
           end
         end else if (CACHE_EN && spimemio_req_i.req) begin
           memio_addr_d = spimemio_req_i.addr;
-          memio_data = spimemio_req_i.wdata;
-          memio_be = spimemio_req_i.be;
+          memio_data_d = spimemio_req_i.wdata;
+          memio_be_d = spimemio_req_i.be;
           spimemio_resp_o.gnt = 1'b1;
 
           memio_state_d = spimemio_req_i.we ? MEMIO_WRITE : MEMIO_READ;
@@ -589,13 +593,13 @@ module w25q128jw_controller
               // Clear memio flag and finish transaction
               memio_state_d = MEMIO_IDLE;
               memio_addr_d = 'h0;
-              memio_be = 4'h0;
+              memio_be_d = 4'h0;
               read_cache_state_d = READ_CACHE_IDLE;
               // Check for memio request (skip idle)
               if (spimemio_req_i.req) begin
                 memio_addr_d = spimemio_req_i.addr;
-                memio_data = spimemio_req_i.wdata;
-                memio_be = spimemio_req_i.be;
+                memio_data_d = spimemio_req_i.wdata;
+                memio_be_d = spimemio_req_i.be;
                 spimemio_resp_o.gnt = 1'b1;
 
                 memio_state_d = spimemio_req_i.we ? MEMIO_WRITE : MEMIO_READ;
@@ -1485,19 +1489,19 @@ module w25q128jw_controller
 
           MODIFY_MEMIO_REQ: begin
             if (cache_valid) begin
-              spimemio_resp_o.rdata = memio_data;
+              spimemio_resp_o.rdata = memio_data_q;
               spimemio_resp_o.rvalid = 1'b1;
 
               // Clear memio flag and finish transaction
               memio_state_d = MEMIO_IDLE;
-              memio_be = 4'h0;
+              memio_be_d = 4'h0;
               modify_state_d = MODIFY_IDLE;
 
               // Check for memio request (skip idle)
               if (spimemio_req_i.req) begin
                 memio_addr_d = spimemio_req_i.addr;
-                memio_data = spimemio_req_i.wdata;
-                memio_be = spimemio_req_i.be;
+                memio_data_d = spimemio_req_i.wdata;
+                memio_be_d = spimemio_req_i.be;
                 spimemio_resp_o.gnt = 1'b1;
 
                 memio_state_d = spimemio_req_i.we ? MEMIO_WRITE : MEMIO_READ;
@@ -2006,8 +2010,8 @@ module w25q128jw_controller
           .controller_resp_o(cache_ctrl_resp),
           .lookup_addr_i    (cache_lookup_addr),
           .mem_man_req_i    (cache_req),
-          .memio_wdata_i    (memio_data),
-          .memio_be_i       (memio_be),
+          .memio_wdata_i    (memio_data_d),
+          .memio_be_i       (memio_be_d),
           .valid_bridge_o   (cache_valid),
           .mem_rdata_o      (cache_rdata)
       );

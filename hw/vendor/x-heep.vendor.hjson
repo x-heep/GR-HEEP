@@ -8,7 +8,7 @@
 
   upstream: {
     url: "https://github.com/x-heep/x-heep.git"
-    rev: "2513bbd14d12a202d49e960f3eb51cd34209b6ae"
+    rev: "8759d1b4760c95f7bcc0490afb27b7f41960aabd"
   }
 
   patch_dir: "patches/x-heep"

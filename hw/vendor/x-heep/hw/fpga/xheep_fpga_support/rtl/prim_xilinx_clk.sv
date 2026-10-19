@@ -108,7 +108,7 @@ module cv32e40x_clock_gate #(
 endmodule
 
 module tc_clk_gating #(
-    /// This paramaeter is a hint for tool/technology specific mappings of this
+    /// This parameter is a hint for tool/technology specific mappings of this
     /// tech_cell. It indicates wether this particular clk gate instance is
     /// required for functional correctness or just instantiated for power
     /// savings. If IS_FUNCTIONAL == 0, technology specific mappings might

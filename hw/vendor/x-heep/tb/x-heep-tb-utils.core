@@ -16,11 +16,13 @@ filesets:
     - example:ip:ams
     - example:ip:iffifo
     - example:ip:i2s_microphone
+    - example:ip:i2s_tx_sink
     - example:ip:simple_accelerator
     - example:ip:dlc
     - example:ip:im2col_spc
     - example:ip:dlc
     - x-heep:ip:serial_link_xheep_wrapper
+    - use_hls_example ? (epfl:ip:dot_product)
 
   files_verilator_waiver:
     files:

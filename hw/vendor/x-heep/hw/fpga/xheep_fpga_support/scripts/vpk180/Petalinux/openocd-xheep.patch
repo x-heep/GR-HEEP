@@ -1,0 +1,105 @@
+diff --git a/src/target/riscv/riscv-013_reg.c b/src/target/riscv/riscv-013_reg.c
+index b2b1a921f..ce49254bb 100644
+--- a/src/target/riscv/riscv-013_reg.c
++++ b/src/target/riscv/riscv-013_reg.c
+@@ -129,10 +129,30 @@ static int examine_vlenb(struct target *target)
+ 
+ 	/* Reading "vlenb" requires "mstatus.vs" to be set, so "mstatus" should
+ 	 * be accessible.*/
+-	int res = init_cache_entry(target, GDB_REGNO_MSTATUS);
++	int res = init_cache_entry(target, GDB_REGNO_VLENB);
+ 	if (res != ERROR_OK)
+ 		return res;
+ 
++	/* Read misa, if not readable fatal */
++	res = init_cache_entry(target, GDB_REGNO_MISA);
++	if (res != ERROR_OK)
++		return res;
++
++	riscv_reg_t misa_val = 0;
++	if (riscv_reg_get(target, &misa_val, GDB_REGNO_MISA) != ERROR_OK) {
++		LOG_TARGET_ERROR(target, "Failed to read misa; cannot decide whether to probe vlenb.");
++		return ERROR_FAIL;
++	}
++
++	/* misa bit (V) indicates vector extension */
++	const bool has_v = (((uint64_t)misa_val >> ('V' - 'A')) & 1ULL) != 0;
++
++	if (!has_v) {
++		/* No V extension, do not probe vlenb */
++		r->vlenb = 0;
++		return riscv_reg_impl_set_exist(target, GDB_REGNO_VLENB, false);
++	}
++
+ 	res = assume_reg_exist(target, GDB_REGNO_VLENB);
+ 	if (res != ERROR_OK)
+ 		return res;
+@@ -159,6 +179,7 @@ static int examine_vlenb(struct target *target)
+ 	r->vlenb = (unsigned int)vlenb_val;
+ 
+ 	LOG_TARGET_INFO(target, "Vector support with vlenb=%u", r->vlenb);
++
+ 	return ERROR_OK;
+ }
+ 
+@@ -266,27 +287,21 @@ static int examine_misa(struct target *target)
+ 
+ static int examine_mtopi(struct target *target)
+ {
+-	/* Assume the registers exist */
+-	int res = assume_reg_exist(target, GDB_REGNO_MTOPI);
++	/* Disable MTOPI & MTOPEI register reading in examine
++	 * for x-heep cores */
++	int res = init_cache_entry(target, GDB_REGNO_MTOPI);
+ 	if (res != ERROR_OK)
+ 		return res;
+-	res = assume_reg_exist(target, GDB_REGNO_MTOPEI);
++
++	res = init_cache_entry(target, GDB_REGNO_MTOPEI);
+ 	if (res != ERROR_OK)
+ 		return res;
+ 
+-	riscv_reg_t value;
+-	if (riscv_reg_get(target, &value, GDB_REGNO_MTOPI) != ERROR_OK) {
+-		res = riscv_reg_impl_set_exist(target, GDB_REGNO_MTOPI, false);
+-		if (res != ERROR_OK)
+-			return res;
+-		return riscv_reg_impl_set_exist(target, GDB_REGNO_MTOPEI, false);
+-	}
+-	if (riscv_reg_get(target, &value, GDB_REGNO_MTOPEI) != ERROR_OK) {
+-		LOG_TARGET_INFO(target, "S?aia detected without IMSIC");
+-		return riscv_reg_impl_set_exist(target, GDB_REGNO_MTOPEI, false);
+-	}
+-	LOG_TARGET_INFO(target, "S?aia detected with IMSIC");
+-	return ERROR_OK;
++	res = riscv_reg_impl_set_exist(target, GDB_REGNO_MTOPI, false);
++	if (res != ERROR_OK)
++		return res;
++
++	return riscv_reg_impl_set_exist(target, GDB_REGNO_MTOPEI, false);
+ }
+ 
+ /**
+diff --git a/src/target/riscv/riscv_reg.c b/src/target/riscv/riscv_reg.c
+index ba1bc2a85..176f77010 100644
+--- a/src/target/riscv/riscv_reg.c
++++ b/src/target/riscv/riscv_reg.c
+@@ -370,12 +370,12 @@ bool riscv_reg_impl_gdb_regno_exist(const struct target *target, uint32_t regno)
+ 	switch (regno) {
+ 	case GDB_REGNO_VLENB:
+ 	case GDB_REGNO_MTOPI:
+-	case GDB_REGNO_MTOPEI:
+-		assert(false
+-				&& "Existence of other registers is determined "
+-				"depending on existence of these ones, so "
+-				"whether these register exist or not should be "
+-				"set explicitly.");
++	case GDB_REGNO_MTOPEI:
++		LOG_WARNING("Existence of other registers is determined "
++			"depending on existence of these ones, so "
++			"whether these register exist or not should be "
++			"set explicitly.");
++		return false;
+ 	};
+ 
+ 	if (regno <= GDB_REGNO_XPR15 ||

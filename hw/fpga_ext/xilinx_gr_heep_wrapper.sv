@@ -47,7 +47,7 @@ module xilinx_gr_heep_wrapper
     inout logic uart_rx_i,
     inout logic uart_tx_o,
 
-    inout logic [13:0] gpio_io,
+    inout logic [12:0] gpio_io,
 
     output logic exit_value_o,
     inout  logic exit_valid_o,
@@ -77,7 +77,8 @@ module xilinx_gr_heep_wrapper
 
     inout logic i2s_sck_io,
     inout logic i2s_ws_io,
-    inout logic i2s_sd_io
+    inout logic i2s_sd_rx_io,
+    inout logic i2s_sd_tx_io
 );
 
   wire                               clk_gen;
@@ -180,7 +181,6 @@ module xilinx_gr_heep_wrapper
     .gpio_10_io(gpio_io[10]),
     .gpio_11_io(gpio_io[11]),
     .gpio_12_io(gpio_io[12]),
-    .gpio_13_io(gpio_io[13]),
     .spi_flash_sck_io(spi_flash_sck_o),
     .spi_flash_cs_0_io(spi_flash_csb_o),
     .spi_flash_cs_1_io(),
@@ -203,7 +203,8 @@ module xilinx_gr_heep_wrapper
     .pdm2pcm_pdm_io(pdm2pcm_pdm_io),
     .i2s_sck_io(i2s_sck_io),
     .i2s_ws_io(i2s_ws_io),
-    .i2s_sd_io(i2s_sd_io),
+    .i2s_sd_rx_io(i2s_sd_rx_io),
+    .i2s_sd_tx_io(i2s_sd_tx_io),
     .spi2_sck_io(spi2_sck_o),
     .spi2_cs_0_io(spi2_csb_o[0]),
     .spi2_cs_1_io(spi2_csb_o[1]),

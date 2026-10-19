@@ -56,7 +56,7 @@ module testharness #(
   wire mux_jtag_tdi;
   wire mux_jtag_tdo;
   wire mux_jtag_trstn;
-  wire [13:0] gpio;
+  wire [12:0] gpio;
   wire spi_flash_sck;
   wire [1:0] spi_flash_cs;
   wire [3:0] spi_flash_sd;
@@ -73,7 +73,8 @@ module testharness #(
   wire pdm2pcm_pdm;
   wire i2s_sck;
   wire i2s_ws;
-  wire i2s_sd;
+  wire i2s_sd_rx;
+  wire i2s_sd_tx;
   wire spi2_sck;
   wire [1:0] spi2_cs;
   wire [3:0] spi2_sd;
@@ -124,7 +125,6 @@ module testharness #(
       .gpio_10_io(gpio[10]),
       .gpio_11_io(gpio[11]),
       .gpio_12_io(gpio[12]),
-      .gpio_13_io(gpio[13]),
       .spi_flash_sck_io(spi_flash_sck),
       .spi_flash_cs_0_io(spi_flash_cs[0]),
       .spi_flash_cs_1_io(spi_flash_cs[1]),
@@ -147,7 +147,8 @@ module testharness #(
       .pdm2pcm_pdm_io(pdm2pcm_pdm),
       .i2s_sck_io(i2s_sck),
       .i2s_ws_io(i2s_ws),
-      .i2s_sd_io(i2s_sd),
+      .i2s_sd_rx_io(i2s_sd_rx),
+      .i2s_sd_tx_io(i2s_sd_tx),
       .spi2_sck_io(spi2_sck),
       .spi2_cs_0_io(spi2_cs[0]),
       .spi2_cs_1_io(spi2_cs[1]),

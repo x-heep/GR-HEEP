@@ -36,3 +36,5 @@ lint_off -rule UNUSEDSIGNAL -file "*/w25q128jw_controller.sv" -match "Signal is 
 lint_off -rule UNUSEDSIGNAL -file "*/w25q128jw_controller.sv" -match "Signal is not used: 'cache_data_bus_we'*"
 lint_off -rule UNUSEDPARAM -file "*/w25q128jw_controller.sv" -match "Parameter is not used: 'W25Q128JW_CONTROLLER_START_ADDRESS'*"
 lint_off -rule UNUSEDSIGNAL -file "*/w25q128jw_controller.sv" -match "Signal is not used: 'llc_cache_pwr_ctrl_i'*"
+lint_off -rule UNUSEDSIGNAL -file "*/w25q128jw_controller.sv" -match "Signal is not used: 'cache_lookup_addr'*"
+lint_off -rule UNUSEDPARAM -file "*/spi_subsystem.sv" -match "Parameter is not used: 'CACHE_EN'*"

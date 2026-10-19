@@ -18,7 +18,7 @@
     gr_heep = xheep.get_extension("gr-heep")
     xif = xheep.xif()
     cpu = xheep.cpu()
-    dma = xheep.get_base_peripheral_domain().get_dma()
+    dma = xheep.get_base_peripheral_domain().get_peripheral("dma")
     hw_fifo = (dma._hw_fifo_mode == 1) and (len(gr_heep["hw_fifo_channels"])>0)
 %>
 

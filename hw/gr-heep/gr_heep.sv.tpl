@@ -14,7 +14,7 @@
     analog_signal_pads = [ pad for pad in xheep.get_padring().pad_list if any(isinstance(pin, Asignal) for pin in pad.pins) ]
     gr_heep = xheep.get_extension("gr-heep")
     xif = xheep.xif()
-    dma = xheep.get_base_peripheral_domain().get_dma()
+    dma = xheep.get_base_peripheral_domain().get_peripheral("dma")
     hw_fifo = (dma._hw_fifo_mode == 1) and (len(gr_heep["hw_fifo_channels"])>0)
 %>
 module gr_heep (

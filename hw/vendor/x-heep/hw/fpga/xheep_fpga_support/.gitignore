@@ -1,0 +1,11 @@
+scripts/generate_sram.tcl
+constraints/pynq-z2/constraints.xdc
+constraints/pynq-z2/pin_assign.xdc
+rtl/sram_wrapper.sv
+scripts/aup-zu3/generate_sram.tcl
+scripts/genesys2/generate_sram.tcl
+scripts/nexys/generate_sram.tcl
+scripts/pynq-z2/generate_sram.tcl
+scripts/vpk180/generate_sram.tcl
+scripts/zcu102/generate_sram.tcl
+scripts/zcu104/generate_sram.tcl

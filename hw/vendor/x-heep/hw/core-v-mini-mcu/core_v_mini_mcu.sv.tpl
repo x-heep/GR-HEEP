@@ -7,11 +7,9 @@
 %>
 
 <%
-  dma = xheep.get_base_peripheral_domain().get_dma()
+  dma = xheep.get_base_peripheral_domain().get_peripheral("dma")
   memory_ss = xheep.memory_ss()
   user_peripheral_domain = xheep.get_user_peripheral_domain()
-  dma = xheep.get_base_peripheral_domain().get_dma()
-  memory_ss = xheep.memory_ss()
   dma_obi_msb = dma.get_num_master_ports() - 1
 
   clk_module = next((p for p in xheep.get_padring().get_connected_pins() if p.name in ["clk", "ref_clk"] ), None).module
@@ -296,6 +294,7 @@ module core_v_mini_mcu #(
 
   // I2s
   logic i2s_rx_valid;
+  logic i2s_tx_ready;
 
   assign intr = {
     irq_fast, 4'b0, irq_external, 3'b0, rv_timer_intr[0], 3'b0, irq_software, 3'b0
@@ -507,6 +506,7 @@ module core_v_mini_mcu #(
       .spi_rx_valid_i(spi_rx_valid),
       .spi_tx_ready_i(spi_tx_ready),
       .i2s_rx_valid_i(i2s_rx_valid),
+      .i2s_tx_ready_i(i2s_tx_ready),
       .ext_peripheral_slave_req_o,
       .ext_peripheral_slave_resp_i,
       .ext_dma_slot_tx_i,
@@ -568,11 +568,11 @@ module core_v_mini_mcu #(
       .i2s_ws_o(i2s_ws_o),
       .i2s_ws_oe_o(i2s_ws_oe_o),
       .i2s_ws_i(i2s_ws_i),
-      .i2s_sd_o(i2s_sd_o),
-      .i2s_sd_oe_o(i2s_sd_oe_o),
-      .i2s_sd_i(i2s_sd_i),
+      .i2s_sd_tx_o(i2s_sd_tx_o),
+      .i2s_sd_rx_i(i2s_sd_rx_i),
       .i2s_rx_valid_o(i2s_rx_valid),
-      .ddr_rcv_clk_i,  
+      .i2s_tx_ready_o(i2s_tx_ready),
+      .ddr_rcv_clk_i,
       .ddr_snd_clk_o,
       .ddr_rcv_0_i,
       .ddr_rcv_1_i,

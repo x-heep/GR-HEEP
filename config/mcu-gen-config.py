@@ -41,13 +41,13 @@ from peripherals.user_peripherals import (
     I2S,
     UART,
 )
-from peripherals.base_peripherals_domain import BasePeripheralDomain
-from peripherals.user_peripherals_domain import UserPeripheralDomain
+from peripherals.peripheral_domain import PeripheralDomain
 
 
 def config():
     # Parallel bus
-    system = XHeep(BusType.NtoM)
+    system = XHeep()
+    system.set_bus_type(BusType.NtoM)
 
     # Set cv32e40px CPU
     system.set_cpu(CPU("cv32e40px"))
@@ -108,8 +108,8 @@ def config():
     system.set_address_map(address_map)
 
     # Peripheral domains initialization
-    base_peripheral_domain = BasePeripheralDomain()
-    user_peripheral_domain = UserPeripheralDomain()
+    base_peripheral_domain = PeripheralDomain(name="base_peripheral_domain")
+    user_peripheral_domain = PeripheralDomain(name="user_peripheral_domain")
 
     # Base peripherals. All base peripherals must be added. They can be either added with
     # "add_peripheral" or "add_missing_peripherals" (adds all base peripherals).

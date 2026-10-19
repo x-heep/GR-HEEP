@@ -1,0 +1,46 @@
+CAPI=2:
+
+# Copyright (C) 2026 EPFL.
+# Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+# SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+#
+# File: axi_obi.core
+# Author: Mohammad Hossein Nikkhah
+# Description: 
+
+name: pulp-platform.org::axi_obi
+description: OBI to AXI protocol bridge from pulp-platform/axi_obi.
+
+filesets:
+  obi_to_axi:
+    depend:
+    - ::obi:0.1.7
+    - pulp-platform.org::common_cells
+    - pulp-platform.org::axi
+    files:
+    - pulp_platform/axi_obi/src/obi_to_axi.sv
+    file_type: systemVerilogSource
+
+  axi_to_obi:
+    depend:
+    - ::obi:0.1.7
+    - pulp-platform.org::common_cells
+    - pulp-platform.org::axi
+    files:
+    - pulp_platform/axi_obi/src/axi_to_detailed_mem_user.sv
+    - pulp_platform/axi_obi/src/axi_to_obi.sv
+    file_type: systemVerilogSource
+
+targets:
+  default:
+    filesets:
+    - obi_to_axi
+    - axi_to_obi
+
+  obi_to_axi:
+    filesets:
+    - obi_to_axi
+
+  axi_to_obi:
+    filesets:
+    - axi_to_obi

@@ -1,0 +1,35 @@
+// Copyright (C) 2026 EPFL.
+// Solderpad Hardware License, Version 2.1, see LICENSE.md for details.
+// SPDX-License-Identifier: Apache-2.0 WITH SHL-2.1
+//
+// File: obi.vendor.hjson
+// Author: Mohammad Hossein Nikkhah
+// Description: Vendor configuration for importing the PULP Platform OBI dependency.
+{
+  name: "obi",
+  target_dir: "obi",
+
+  upstream: {
+    url: "https://github.com/pulp-platform/obi.git",
+    rev: "0155fc34e900c7c884e081c0a1114a247937ff69",
+  },
+
+  patch_dir: "../patches/pulp_platform_obi",
+
+  exclude_from_upstream: [
+    ".ci",
+    ".github",
+    ".gitlab-ci.d",
+    ".gitignore",
+    ".gitlab-ci.yml",
+    "Bender.lock",
+    "Bender.yml",
+    "CHANGELOG.md",
+    "Makefile",
+    "Readme.md",
+    "scripts",
+    "src/test",
+    "test",
+  ]
+
+}
