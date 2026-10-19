@@ -1,0 +1,119 @@
+# Re-vendors X-HEEP main every night and runs the CI on it. When the CI passes, the update is pushed to main;
+# when it fails, main stays on the last working X-HEEP and an issue is opened (GitHub notifies the assignee).
+# The attempted update stays on the xheep-canary branch until the next run.
+name: X-HEEP canary
+
+on:
+  schedule:
+    - cron: '0 23 * * *' # daily, midnight in Italy (CET; 1:00 in summer time); GitHub cron is UTC
+  workflow_dispatch:
+
+concurrency: xheep-canary
+
+permissions:
+  contents: write # push the xheep-canary branch and main
+  issues: write # report breakages
+  packages: read # pull the toolchain image in the CI
+
+env:
+  BRANCH: xheep-canary
+  ASSIGNEE: LuigiGiuffrida98
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
+      run: ${{ steps.sha.outputs.run }}
+      image: ${{ steps.image.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: sha
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(git ls-remote https://github.com/x-heep/x-heep.git refs/heads/main | cut -f1)
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          # Skip a commit already vendored, or already reported as breaking in an open issue.
+          reported=$(gh issue list --label xheep-canary --state open --search "$sha in:body" --json number --jq length 2>/dev/null || echo 0)
+          if grep -q "$sha" hw/vendor/x-heep.lock.hjson || [ "$reported" != 0 ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - id: image
+        # X-HEEP tags its toolchain image v<version>, the version in core-v-mini-mcu.core; `latest` lags behind.
+        run: |
+          v=$(curl -fsSL "https://raw.githubusercontent.com/x-heep/x-heep/${{ steps.sha.outputs.sha }}/core-v-mini-mcu.core" | sed -n 's/^name: .*core-v-mini-mcu:\(.*\)/\1/p')
+          echo "tag=v${v:?no version in core-v-mini-mcu.core}" >> "$GITHUB_OUTPUT"
+
+  update:
+    needs: check
+    if: needs.check.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/x-heep/x-heep/x-heep-toolchain:${{ needs.check.outputs.image }}
+    env:
+      SHA: ${{ needs.check.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Re-vendor X-HEEP and regenerate
+        shell: bash -le {0}
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          pip install -r hw/vendor/x-heep/util/python-requirements.txt
+          sed -i "s/rev: \"[0-9a-f]*\"/rev: \"$SHA\"/" hw/vendor/x-heep.vendor.hjson
+          util/vendor.py -vU hw/vendor/x-heep.vendor.hjson
+          pip install -r hw/vendor/x-heep/util/python-requirements.txt
+          make mcu-gen
+      - name: Push to the canary branch
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m "Update X-HEEP to x-heep/x-heep@${SHA:0:7}"
+          git push --force origin "HEAD:refs/heads/$BRANCH"
+
+  ci:
+    needs: update
+    uses: ./.github/workflows/ci.yml
+    with:
+      ref: xheep-canary
+
+  pin:
+    needs: [check, ci]
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SHA: ${{ needs.check.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH }}
+          fetch-depth: 0
+      - run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin main
+          git push origin HEAD:main ":$BRANCH"
+          for n in $(gh issue list --label xheep-canary --state open --json number --jq '.[].number'); do
+            gh issue close "$n" --comment "Works again with x-heep/x-heep@$SHA, now vendored on main."
+          done
+
+  report:
+    needs: [check, update, ci]
+    if: failure()
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SHA: ${{ needs.check.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          gh label create xheep-canary --color B60205 --description 'GR-HEEP broken by a new X-HEEP commit' --force
+          gh issue create --label xheep-canary --assignee "$ASSIGNEE" \
+            --title "GR-HEEP broken by X-HEEP ${SHA:0:7}" \
+            --body "Re-vendoring or the CI fails with x-heep/x-heep@$SHA: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          The attempted update is on the \`$BRANCH\` branch (if re-vendoring succeeded). main stays on X-HEEP \`$(sed -n 's/.*rev: *//p' hw/vendor/x-heep.lock.hjson)\`."

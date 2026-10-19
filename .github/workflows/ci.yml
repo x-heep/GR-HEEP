@@ -5,6 +5,10 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "**" ]
+  workflow_call: # the X-HEEP canary runs the CI on its update branch
+    inputs:
+      ref:
+        type: string
 
 permissions:
   packages: read
@@ -22,6 +26,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
 
       - name: Determine tag from vendored x-heep
         id: get-tag
@@ -55,6 +61,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - name: Install Python dependencies
         shell: bash -l {0}
         run: pip install -r hw/vendor/x-heep/util/python-requirements.txt
@@ -73,6 +81,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - name: Install Python dependencies
         shell: bash -l {0}
         run: pip install -r hw/vendor/x-heep/util/python-requirements.txt
@@ -91,6 +101,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - uses: actions/setup-python@v4
         with:
           python-version: 3.12
@@ -106,6 +118,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
       - uses: psf/black@stable
         with:
           options: "--check --verbose"
