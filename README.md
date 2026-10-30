@@ -15,6 +15,7 @@ On top of it, GR-HEEP adds:
 | `hw/fpga_ext/`, `hw/fpga/` | FPGA wrapper and board support (Pynq-Z2, Nexys A7-100T, Genesys2, AU+ zu3, ZCU102/104). |
 | `gr-heep.core` | The [FuseSoC](https://fusesoc.readthedocs.io/) core (`x-heep:systems:gr-heep`) that ties everything together for targets like simulation or synthesis. |
 | `sw/` | Applications (`sw/applications/`), drivers, SDK, and linker scripts for the extended SoC. |
+| `sw/external/` | GR-HEEP-specific SW runtime (e.g. `ext_irq.c` PLIC handlers and the generated `gr_heep.h`), compiled together with X-HEEP's `sw` tree. |
 | `tb/`, `test/` | Testbench and the app compile-and-simulate test suite. |
 | `.github/workflows/` | CI, including the nightly canary that keeps X-HEEP updated. |
 
@@ -26,6 +27,13 @@ The root `Makefile` forwards any target it does not define to X-HEEP's own Makef
 2. Change the name to your project.
 3. (optional) Update the references to GR-HEEP to your project name.
 4. Start shaping your SoC by adding your IPs in `hw/` and configuring the system in `config/mcu-gen-config.py`.
+
+## Adding your own hardware
+
+- Keep your IP in its own repository and vendor it the same way X-HEEP is: add a `hw/vendor/<your_ip>.vendor.hjson` pinning the upstream URL and revision, run `make vendor-update MODULE_NAME=<your_ip>`, and depend on its FuseSoC core from the relevant fileset in `gr-heep.core` (`depend:` entry). This keeps your accelerator versioned and updatable independently of the SoC. For quick experiments, plain RTL under `hw/` listed in the `files_rtl_generic` fileset of `gr-heep.core` also works.
+- Wire new external slaves and peripherals into the SoC in `gr_heep_config()` in `config/mcu-gen-config.py`: add them to the address map and assign their interrupts there.
+- If your module needs generated code, provide it as a `*.tpl` template anywhere in the tree. `make mcu-gen` discovers and expands it automatically.
+- Give your hardware a driver or runtime code under `sw/external`, next to the existing GR-HEEP code, and write your applications in `sw/applications`.
 
 ## Getting started
 
