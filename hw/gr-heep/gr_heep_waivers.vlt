@@ -48,15 +48,11 @@ lint_off -rule UNUSED -file "*gr_heep.sv" -match "Signal is not used: '*oe_x'"
 // lint_off -rule UNDRIVEN -file "*gr_heep.sv" -match "Signal is not driven: '*_rsp'"
 // lint_off -rule UNDRIVEN -file "*gr_heep.sv" -match "Signal is not driven: '*_resp'"
 // lint_off -rule UNDRIVEN -file "*gr_heep.sv" -match "Bits of signal are not driven: 'external_subsystem_powergate_switch_ack_n'[1]"
-lint_off -rule UNDRIVEN -file "*gr_heep_bus.sv" -match "Signal is not driven: 'ext_master_resp_o'"
-lint_off -rule UNDRIVEN -file "*gr_heep_bus.sv" -match "Signal is not driven: 'heep_slave_req_o'"
 
 lint_off -rule SYNCASYNCNET -file "*gr_heep.sv" -match "*spi_slave_cs*"
 
 lint_off -rule COMBDLY -file "*clock_gate.sv" -match "*"
 lint_off -rule NOLATCH -file "*clock_gate.sv" -match "*"
-
-lint_off -rule ASCRANGE -file "*gr_heep_bus.sv" -match "Ascending bit range vector: left < right of bit range: [-1:0]"
 
 
 // Only driven when the W25Q128JW controller cache is enabled, which GR-HEEP does not use
