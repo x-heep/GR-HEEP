@@ -64,8 +64,8 @@ module gr_heep_bus #(
   xheep_obi_rsp_t [core_v_mini_mcu_pkg::SYSTEM_XBAR_NMASTER+EXT_XBAR_NMASTER-1:0] master_resp;
 
   // Forward crossbars ports
-  xheep_obi_req_t [EXT_XBAR_NMASTER-1:0][1:0] demux_xbar_req;
-  xheep_obi_rsp_t [EXT_XBAR_NMASTER-1:0][1:0] demux_xbar_resp;
+  xheep_obi_req_t [ExtXbarNmasterRnd-1:0][1:0] demux_xbar_req;
+  xheep_obi_rsp_t [ExtXbarNmasterRnd-1:0][1:0] demux_xbar_resp;
 
   // Dummy external master port (to prevent unused warning)
   xheep_obi_req_t [ExtXbarNmasterRnd-1:0] ext_master_req_unused;
@@ -130,6 +130,13 @@ module gr_heep_bus #(
   generate
     for (genvar i = 0; unsigned'(i) < EXT_XBAR_NMASTER; i++) begin : gen_demux_master_resp_map
       assign demux_xbar_resp[i][DEMUX_XBAR_EXT_SLAVE_IDX] = master_resp[SYSTEM_XBAR_NMASTER+i];
+    end
+  endgenerate
+
+  generate
+    if (EXT_XBAR_NMASTER == 0) begin : gen_no_ext_master
+      assign heep_slave_req_o  = '0;
+      assign ext_master_resp_o = '0;
     end
   endgenerate
 
