@@ -21,6 +21,7 @@ env:
 
 jobs:
   check:
+    if: github.repository == 'x-heep/GR-HEEP' # Only run in upstream repository
     runs-on: ubuntu-latest
     outputs:
       sha: ${{ steps.sha.outputs.sha }}

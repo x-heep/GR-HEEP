@@ -98,17 +98,22 @@ jobs:
   check-vendor:
     name: Vendor up-to-date
     runs-on: ubuntu-latest
+    needs: determine-image-tag
+    container:
+      image: ghcr.io/x-heep/x-heep/x-heep-toolchain:${{ needs.determine-image-tag.outputs.tag }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
-      - uses: actions/setup-python@v4
-        with:
-          python-version: 3.12
-      - name: Install requirements
+      - name: Install Python dependencies
+        shell: bash -l {0}
         run: pip install -r hw/vendor/x-heep/util/python-requirements.txt
+      - name: Mark Repository as Safe
+        run: |
+          git config --global --add safe.directory $GITHUB_WORKSPACE
       - name: Re-vendor and diff
+        shell: bash -l {0}
         run: |
           find hw/vendor -maxdepth 1 -type f -name '*.vendor.hjson' | xargs -n1 util/vendor.py --verbose &&
           hw/vendor/x-heep/util/git-diff.py --error-msg '::error ::Found differences, please re-vendor.'
