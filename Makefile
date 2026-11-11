@@ -85,8 +85,8 @@ format-python:
 mcu-gen: | $(BUILD_DIR)/
 	@echo "### Building X-HEEP MCU for '$(TARGET)'..."
 	$(MAKE) -f $(XHEEP_MAKE) mcu-gen \
-		X_HEEP_CFG=$(X_HEEP_CFG) \
-		PADS_CFG=$(PADS_CFG) \
+		X_HEEP_CFG=$(realpath $(X_HEEP_CFG)) \
+		PADS_CFG=$(realpath $(PADS_CFG)) \
 		EXTERNAL_DOMAINS=$(EXTERNAL_DOMAINS) \
 		EXTERNAL_MCU_GEN_TEMPLATES="$(EXTERNAL_MCU_GEN_TEMPLATES)"
 	$(MAKE) verible
