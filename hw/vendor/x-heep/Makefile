@@ -428,14 +428,25 @@ vendor-clean:
 
 ## @section Cleaning commands
 
+# generate_core.sh of every HLS flow. Each one must handle the 'clean' argument
+# without running (or needing) the HLS tool.
+HLS_GENERATE_CORE_SCRIPTS = $(mkfile_path)/hw/fpga/hls/vitis/dot_product/generate_core.sh \
+                            $(mkfile_path)/hw/fpga/hls/bambu/dot_product/generate_core.sh \
+                            $(mkfile_path)/hw/fpga/hls/dynamatic/dot_product/generate_core.sh
+
 ## Remove the sw build folder
 .PHONY: clean-app
 clean-app:
 	$(RM) -r sw/build
 
+## Remove the HLS-generated RTL, projects and logs (needs none of the HLS tools, nor Docker)
+.PHONY: clean-hls
+clean-hls:
+	@for script in $(HLS_GENERATE_CORE_SCRIPTS); do $$script clean || exit 1; done
+
 ## Remove the build folders
 .PHONY: clean
-clean: clean-app
+clean: clean-app clean-hls
 	$(RM) -r $(BUILD_DIR)
 	$(RM) $(MCU_GEN_OUTPUTS) $(EXTERNAL_MCU_GEN_OUTPUTS)
 	find . -type f -name "*_reg_gen.cache" -delete
