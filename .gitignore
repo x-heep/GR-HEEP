@@ -1,5 +1,6 @@
 *.log
 __pycache__/
+.DS_Store
 
 # Build directory
 build/
