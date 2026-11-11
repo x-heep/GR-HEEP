@@ -36,6 +36,10 @@ PADS_CFG_ASIC		?= $(ROOT_DIR)/config/gr-heep_pad_cfg.py
 PADS_CFG_FPGA		?= $(ROOT_DIR)/config/gr-heep_pad_cfg.py  # Currently the same as ASIC, but can be different if needed in the future
 EXTERNAL_DOMAINS	:= 0 # TO BE UPDATED according to the number of external domains. FIXME: move to mcu-gen
 
+# Application spacific makefile
+APP_MAKE 	:= $(wildcard sw/applications/$(PROJECT)/*akefile)
+APP_PARAMS  ?=
+
 ifeq ($(TARGET),asic)
 	PADS_CFG := $(PADS_CFG_ASIC)
 else ifeq ($(filter $(TARGET),pynq-z2 nexys-a7-100t genesys2 aup-zu3 zcu102 zcu104),$(TARGET))
@@ -77,6 +81,15 @@ verible:
 format-python:
 	$(PYTHON) -m black config
 	$(PYTHON) -m black test
+
+.PHONY: app
+app: $(POLHEEPO_GEN_LOCK) | $(BUILD_DIR)/sw/app/
+ifneq ($(APP_MAKE),)
+	@echo "### Calling application-specific makefile '$(APP_MAKE)'..."
+	$(MAKE) -C $(dir $(APP_MAKE)) APP_PARAMS="$(APP_PARAMS)"
+endif
+	@echo "### Building application for SRAM execution with GCC compiler..."
+	$(MAKE) -f $(XHEEP_MAKE) app
 
 ## @section RTL & SW generation
 
