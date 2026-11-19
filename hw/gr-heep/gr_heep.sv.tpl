@@ -389,7 +389,7 @@ module gr_heep (
 
   // Pad ring
   // --------
-  gr_heep_pad_ring gr_heep_pad_ring_i (
+  pad_ring pad_ring_i (
     % for pad in xheep.get_padring().pad_list:
       <%
       has_input_pin = any(isinstance(pin, Input) for pin in pad.pins)
